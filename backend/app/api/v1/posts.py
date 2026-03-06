@@ -8,14 +8,14 @@ from app.models.ai_generation import AIGeneration
 from app.models.post import Post
 from app.models.source_fetch_config import SourceFetchConfig
 from app.schemas.ai_generation import AIGenerationRead
-from app.schemas.post import ImportPostsResponse, PostRead
+from app.schemas.post import ImportPostsResponse, PostListRead, PostRead
 from app.services.logs.activity_logger import log_activity
 from app.services.source.import_service import import_posts_from_config
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
-@router.get("", response_model=list[PostRead])
+@router.get("", response_model=list[PostListRead])
 def list_posts(
     db: Session = Depends(get_db),
     source_site_id: Optional[int] = Query(None),
@@ -54,6 +54,65 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
+
+
+@router.get("/{post_id}/detail")
+def get_post_detail(post_id: int, db: Session = Depends(get_db)):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    generations = (
+        db.query(AIGeneration)
+        .filter(AIGeneration.post_id == post_id)
+        .order_by(AIGeneration.id.desc())
+        .all()
+    )
+
+    latest = {
+        "twitter_summary": None,
+        "facebook_summary": None,
+        "hashtags": None,
+    }
+
+    for row in generations:
+        if row.generation_type in latest and latest[row.generation_type] is None:
+            latest[row.generation_type] = {
+                "generation_id": row.id,
+                "output_text": row.output_text,
+                "generated_at": row.generated_at,
+                "prompt_template_id": row.prompt_template_id,
+                "ollama_profile_id": row.ollama_profile_id,
+            }
+
+    return {
+        "post": {
+            "id": post.id,
+            "source_site_id": post.source_site_id,
+            "fetch_config_id": post.fetch_config_id,
+            "external_post_id": post.external_post_id,
+            "external_post_url": post.external_post_url,
+            "slug": post.slug,
+            "title": post.title,
+            "excerpt": post.excerpt,
+            "raw_content": post.raw_content,
+            "clean_content": post.clean_content,
+            "featured_image_url": post.featured_image_url,
+            "categories_json": post.categories_json,
+            "tags_json": post.tags_json,
+            "status": post.status,
+            "source_publish_status": post.source_publish_status,
+            "original_published_at": post.original_published_at,
+            "source_modified_at": post.source_modified_at,
+            "first_fetched_at": post.first_fetched_at,
+            "last_fetched_at": post.last_fetched_at,
+            "content_hash": post.content_hash,
+            "is_deleted_in_source": post.is_deleted_in_source,
+            "created_at": post.created_at,
+            "updated_at": post.updated_at,
+        },
+        "latest_ai": latest,
+    }
 
 
 @router.get("/{post_id}/ai-generations", response_model=list[AIGenerationRead])

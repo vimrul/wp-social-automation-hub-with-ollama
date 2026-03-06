@@ -4,6 +4,26 @@ from pydantic import BaseModel
 from app.schemas.common import ORMBase
 
 
+class PostListRead(ORMBase):
+    id: int
+    source_site_id: int
+    fetch_config_id: Optional[int]
+    external_post_id: str
+    external_post_url: Optional[str]
+    slug: Optional[str]
+    title: str
+    excerpt: Optional[str]
+    featured_image_url: Optional[str]
+    status: str
+    source_publish_status: Optional[str]
+    original_published_at: Optional[datetime]
+    source_modified_at: Optional[datetime]
+    first_fetched_at: datetime
+    last_fetched_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
 class PostRead(ORMBase):
     id: int
     source_site_id: int
