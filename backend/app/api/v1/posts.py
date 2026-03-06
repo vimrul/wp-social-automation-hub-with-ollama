@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -14,8 +16,36 @@ router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
 @router.get("", response_model=list[PostRead])
-def list_posts(db: Session = Depends(get_db)):
-    return db.query(Post).order_by(Post.id.desc()).all()
+def list_posts(
+    db: Session = Depends(get_db),
+    source_site_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    query = db.query(Post)
+
+    if source_site_id is not None:
+        query = query.filter(Post.source_site_id == source_site_id)
+
+    if status:
+        query = query.filter(Post.status == status)
+
+    if search:
+        like_term = f"%{search}%"
+        query = query.filter(
+            (Post.title.ilike(like_term)) |
+            (Post.slug.ilike(like_term)) |
+            (Post.excerpt.ilike(like_term))
+        )
+
+    return (
+        query.order_by(Post.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{post_id}", response_model=PostRead)
