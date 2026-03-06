@@ -56,3 +56,9 @@ results/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# secrets / archives
+wp.zip
+*.zip
+.env
+.env.*
