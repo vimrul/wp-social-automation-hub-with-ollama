@@ -1,0 +1,45 @@
+.git
+.gitignore
+.DS_Store
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Frontend
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# Local temp/runtime
+tmp/
+temp/
+uploads/
+results/
+*.log
+
+# Docs or misc large/unnecessary local files
+*.tar
+*.zip

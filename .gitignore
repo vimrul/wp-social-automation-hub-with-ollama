@@ -1,0 +1,58 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# FastAPI / app
+*.log
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Alembic cache
+alembic.ini.bak
+
+# Node / frontend
+node_modules/
+dist/
+build/
+coverage/
+vite.svg
+
+# IDEs
+.vscode/
+.idea/
+
+# OS / misc
+Thumbs.db
+
+# Docker
+*.tar
+
+# Local generated files
+tmp/
+temp/
+uploads/
+results/
+
+# Jupyter
+.ipynb_checkpoints/
