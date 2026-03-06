@@ -10,7 +10,7 @@ from app.services.ollama.client import call_ollama
 from app.services.ollama.output_cleaner import clean_ai_output
 
 
-def build_prompt(template: PromptTemplate, post: Post) -> tuple[str, str]:
+def build_prompt(template: PromptTemplate, post: Post):
     system_prompt = template.system_prompt or ""
 
     user_prompt = template.user_prompt_template.format(

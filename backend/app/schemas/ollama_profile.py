@@ -19,6 +19,21 @@ class OllamaProfileCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class OllamaProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    base_url: Optional[HttpUrl] = None
+    model_name: Optional[str] = None
+    auth_type: Optional[str] = None
+    auth_username: Optional[str] = None
+    auth_password_encrypted: Optional[str] = None
+    auth_token_encrypted: Optional[str] = None
+    custom_headers_json: Optional[str] = None
+    timeout_seconds: Optional[int] = None
+    is_default: Optional[bool] = None
+    is_active: Optional[bool] = None
+    notes: Optional[str] = None
+
+
 class OllamaProfileRead(ORMBase):
     id: int
     name: str

@@ -17,6 +17,19 @@ class PromptTemplateCreate(BaseModel):
     is_active: bool = True
 
 
+class PromptTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    template_type: Optional[str] = None
+    platform: Optional[str] = None
+    source_site_id: Optional[int] = None
+    ollama_profile_id: Optional[int] = None
+    system_prompt: Optional[str] = None
+    user_prompt_template: Optional[str] = None
+    max_output_length: Optional[int] = None
+    temperature: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class PromptTemplateRead(ORMBase):
     id: int
     name: str
