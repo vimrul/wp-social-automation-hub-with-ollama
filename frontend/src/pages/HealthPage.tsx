@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import PageHeader from "../components/layout/PageHeader";
 import Loader from "../components/common/Loader";
-import EmptyState from "../components/common/EmptyState";
-import StatusBadge from "../components/common/StatusBadge";
-import { getHealth } from "../api/dashboard";
 
 export default function HealthPage() {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<string>("");
+  const [result, setResult] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
@@ -15,11 +12,14 @@ export default function HealthPage() {
       try {
         setLoading(true);
         setError("");
-        const data = await getHealth();
-        setStatus(data.status);
+
+        const response = await fetch("http://127.0.0.1:8000/api/v1/health");
+        const text = await response.text();
+
+        setResult(`HTTP ${response.status}\n\n${text}`);
       } catch (err) {
-        console.error(err);
-        setError("Failed to connect to backend health endpoint.");
+        console.error("Health fetch error:", err);
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
@@ -38,26 +38,16 @@ export default function HealthPage() {
       {loading ? <Loader /> : null}
 
       {!loading && error ? (
-        <EmptyState
-          title="Health check failed"
-          description={error}
-        />
+        <div className="card">
+          <h3>Health check failed</h3>
+          <p className="muted">{error}</p>
+        </div>
       ) : null}
 
       {!loading && !error ? (
         <div className="card">
-          <div className="health-row">
-            <div>
-              <h3>API Status</h3>
-              <p className="muted">
-                This confirms whether the frontend can reach the FastAPI backend.
-              </p>
-            </div>
-            <StatusBadge
-              label={status || "unknown"}
-              tone={status === "ok" ? "success" : "warning"}
-            />
-          </div>
+          <h3>Raw Health Response</h3>
+          <pre className="json-preview">{result}</pre>
         </div>
       ) : null}
     </div>
