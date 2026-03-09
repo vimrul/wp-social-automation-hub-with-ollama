@@ -225,11 +225,13 @@ textarea {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.75);
+  background: rgba(2, 6, 23, 0.78);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px;
+  padding: 32px 24px;
+  overflow-y: auto;
+  z-index: 9999;
 }
 
 .modal-card {
@@ -239,6 +241,9 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
+  margin: 0 auto;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
 }
 
 .modal-card h3 {
@@ -453,11 +458,233 @@ textarea {
 }
 
 .modal-card-lg {
-  max-width: 760px;
+  max-width: 860px;
 }
 
 @media (max-width: 700px) {
   .form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.filters-card {
+  margin-bottom: 16px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-actions-left {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.detail-subtitle {
+  margin-top: 6px;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.detail-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.detail-meta-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail-links {
+  margin-bottom: 18px;
+}
+
+.detail-section {
+  margin-top: 18px;
+}
+
+.detail-section h3,
+.detail-section h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.detail-paragraph {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.detail-image {
+  width: 100%;
+  max-width: 720px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.content-preview {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.35);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.content-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.content-preview iframe,
+.content-preview video {
+  max-width: 100%;
+}
+
+.detail-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.generation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.generation-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.generation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.generation-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1100px) {
+  .detail-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .detail-top {
+    flex-direction: column;
+  }
+
+  .detail-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modal-card h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.filters-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.table-details summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.table-json {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border);
+  color: #cbd5e1;
+  font-size: 12px;
+  overflow-x: auto;
+  max-width: 420px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .filters-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modal-card-xl {
+  max-width: 1100px;
+}
+
+.break-all {
+  word-break: break-all;
 }

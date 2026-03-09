@@ -9,6 +9,7 @@ import PublishingPage from "../pages/PublishingPage";
 import SettingsPage from "../pages/SettingsPage";
 import ActivityLogsPage from "../pages/ActivityLogsPage";
 import LoginPage from "../pages/LoginPage";
+import SourceFetchConfigsPage from "../pages/SourceFetchConfigsPage";
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
       { path: "dashboard", element: <DashboardPage /> },
       { path: "health", element: <HealthPage /> },
       { path: "source-sites", element: <SourceSitesPage /> },
+      { path: "source-fetch-configs", element: <SourceFetchConfigsPage /> },
       { path: "posts", element: <PostsPage /> },
       { path: "posts/:postId", element: <PostDetailPage /> },
       { path: "publishing", element: <PublishingPage /> },

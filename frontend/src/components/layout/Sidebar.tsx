@@ -4,10 +4,11 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/health", label: "Health" },
   { to: "/source-sites", label: "Source Sites" },
+  { to: "/source-fetch-configs", label: "Fetch Configs" },
   { to: "/posts", label: "Posts" },
-  { to: "/publishing", label: "Publishing" },
+  { to: "/publishing", label: "Ollama Profiles" },
   { to: "/activity-logs", label: "Activity Logs" },
-  { to: "/settings", label: "Settings" },
+  { to: "/settings", label: "Social Accounts" },
 ];
 
 export default function Sidebar() {
