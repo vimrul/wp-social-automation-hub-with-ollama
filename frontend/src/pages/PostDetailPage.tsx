@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+
+// Layout / shared UI
 import PageHeader from "../components/layout/PageHeader";
 import Loader from "../components/common/Loader";
 import EmptyState from "../components/common/EmptyState";
 import StatusBadge from "../components/common/StatusBadge";
+import CollapsibleSection from "../components/common/CollapsibleSection";
+
+// API calls
 import {
   getPostAIGenerations,
   getPostDetail,
@@ -13,31 +18,103 @@ import { getSourceSites } from "../api/sourceSites";
 import { getOllamaProfiles } from "../api/ollamaProfiles";
 import { getPromptTemplates } from "../api/promptTemplates";
 import { generateAIContent } from "../api/aiGenerations";
+
+// Types
 import type { AIGenerationItem, PostDetail } from "../types/post";
 import type { SourceSite } from "../types/sourceSite";
 import type { OllamaProfile } from "../types/ollamaProfile";
 import type { PromptTemplate } from "../types/promptTemplate";
 
+/**
+ * Latest AI values can come in different shapes from the API.
+ * Sometimes it is plain text, sometimes an object with metadata,
+ * sometimes null/undefined.
+ */
+type LatestAIValue =
+  | string
+  | {
+      generation_id?: number;
+      output_text?: string;
+      generated_at?: string;
+      prompt_template_id?: number;
+      ollama_profile_id?: number;
+      hashtags?: string;
+    }
+  | null
+  | undefined;
+
+/**
+ * Simplified structure for the "latest AI" response used in this page.
+ */
 type LatestAISimple = {
-  twitter_summary?: string | null;
-  facebook_summary?: string | null;
-  hashtags?: string | null;
+  twitter_summary?: LatestAIValue;
+  facebook_summary?: LatestAIValue;
+  hashtags?: LatestAIValue;
 };
 
+/**
+ * Format a date safely for display.
+ * Falls back to the raw value if parsing fails.
+ */
 function formatDate(value?: string | null) {
   if (!value) return "-";
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
+
   return date.toLocaleString();
 }
 
+/**
+ * Extract user-visible text from a "latest AI" field.
+ * Supports plain string values and object-based values.
+ */
+function extractLatestText(value: LatestAIValue): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+
+  if (typeof value === "object") {
+    return value.output_text || value.hashtags || JSON.stringify(value, null, 2);
+  }
+
+  return "";
+}
+
+/**
+ * Build a compact metadata line for a latest AI item.
+ * Example:
+ * Generation #12 • Template 4 • Profile 2 • 3/12/2026, 2:20 PM
+ */
+function extractLatestMeta(value: LatestAIValue): string {
+  if (!value || typeof value !== "object") return "";
+
+  const parts: string[] = [];
+
+  if (value.generation_id) parts.push(`Generation #${value.generation_id}`);
+  if (value.prompt_template_id) parts.push(`Template ${value.prompt_template_id}`);
+  if (value.ollama_profile_id) parts.push(`Profile ${value.ollama_profile_id}`);
+  if (value.generated_at) parts.push(formatDate(value.generated_at));
+
+  return parts.join(" • ");
+}
+
 export default function PostDetailPage() {
+  /**
+   * Read postId from the route.
+   * Example route: /posts/:postId
+   */
   const { postId } = useParams();
   const numericPostId = Number(postId);
 
+  // -----------------------------
+  // Page loading / error state
+  // -----------------------------
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // -----------------------------
+  // Main data state
+  // -----------------------------
   const [post, setPost] = useState<PostDetail | null>(null);
   const [generations, setGenerations] = useState<AIGenerationItem[]>([]);
   const [latestAI, setLatestAI] = useState<LatestAISimple | null>(null);
@@ -45,37 +122,66 @@ export default function PostDetailPage() {
   const [profiles, setProfiles] = useState<OllamaProfile[]>([]);
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
 
+  // -----------------------------
+  // Form selections for AI actions
+  // -----------------------------
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [twitterTemplateId, setTwitterTemplateId] = useState("");
   const [facebookTemplateId, setFacebookTemplateId] = useState("");
   const [hashtagTemplateId, setHashtagTemplateId] = useState("");
 
+  // -----------------------------
+  // AI generation feedback state
+  // -----------------------------
   const [generationLoading, setGenerationLoading] = useState(false);
   const [generationMessage, setGenerationMessage] = useState("");
   const [generationError, setGenerationError] = useState("");
 
+  /**
+   * Load everything required for this page in parallel:
+   * - Post detail
+   * - AI generation history
+   * - Latest AI outputs
+   * - Source sites
+   * - Ollama profiles
+   * - Prompt templates
+   */
   const loadPageData = async () => {
     if (!numericPostId || Number.isNaN(numericPostId)) {
       throw new Error("Invalid post id.");
     }
 
-    const [detailData, generationsData, latestAIData, sitesData, profilesData, templatesData] =
-      await Promise.all([
-        getPostDetail(numericPostId),
-        getPostAIGenerations(numericPostId),
-        getPostLatestAI(numericPostId),
-        getSourceSites(),
-        getOllamaProfiles(),
-        getPromptTemplates(),
-      ]);
+    const [
+      detailData,
+      generationsData,
+      latestAIData,
+      sitesData,
+      profilesData,
+      templatesData,
+    ] = await Promise.all([
+      getPostDetail(numericPostId),
+      getPostAIGenerations(numericPostId),
+      getPostLatestAI(numericPostId),
+      getSourceSites(),
+      getOllamaProfiles(),
+      getPromptTemplates(),
+    ]);
 
+    // Set base data into state
     setPost(detailData.post);
     setGenerations(generationsData);
-    setLatestAI(latestAIData.latest || detailData.latest_ai || null);
+    setLatestAI((latestAIData.latest || detailData.latest_ai || null) as LatestAISimple);
     setSites(sitesData);
     setProfiles(profilesData);
     setTemplates(templatesData);
 
+    /**
+     * Auto-select a default active Ollama profile if none is selected.
+     * Priority:
+     * 1. default + active
+     * 2. first active
+     * 3. first profile in the list
+     */
     if (!selectedProfileId) {
       const defaultProfile =
         profilesData.find((profile) => profile.is_default && profile.is_active) ||
@@ -87,16 +193,20 @@ export default function PostDetailPage() {
       }
     }
 
+    /**
+     * Auto-select a Twitter template if not selected.
+     * Priority:
+     * 1. active twitter summary template
+     * 2. any active twitter template
+     */
     if (!twitterTemplateId) {
       const twitterTemplate =
         templatesData.find(
           (template) =>
             template.is_active &&
             template.platform === "twitter" &&
-            (
-              template.template_type === "twitter_summary" ||
-              template.template_type === "summary"
-            )
+            (template.template_type === "twitter_summary" ||
+              template.template_type === "summary")
         ) || templatesData.find((template) => template.is_active && template.platform === "twitter");
 
       if (twitterTemplate) {
@@ -104,16 +214,20 @@ export default function PostDetailPage() {
       }
     }
 
+    /**
+     * Auto-select a Facebook template if not selected.
+     * Priority:
+     * 1. active facebook summary template
+     * 2. any active facebook template
+     */
     if (!facebookTemplateId) {
       const facebookTemplate =
         templatesData.find(
           (template) =>
             template.is_active &&
             template.platform === "facebook" &&
-            (
-              template.template_type === "facebook_summary" ||
-              template.template_type === "summary"
-            )
+            (template.template_type === "facebook_summary" ||
+              template.template_type === "summary")
         ) || templatesData.find((template) => template.is_active && template.platform === "facebook");
 
       if (facebookTemplate) {
@@ -121,12 +235,16 @@ export default function PostDetailPage() {
       }
     }
 
+    /**
+     * Auto-select a hashtag template if not selected.
+     * Priority:
+     * 1. active hashtag template
+     * 2. any active template
+     */
     if (!hashtagTemplateId) {
       const hashtagTemplate =
         templatesData.find(
-          (template) =>
-            template.is_active &&
-            template.template_type === "hashtags"
+          (template) => template.is_active && template.template_type === "hashtags"
         ) || templatesData.find((template) => template.is_active);
 
       if (hashtagTemplate) {
@@ -135,6 +253,9 @@ export default function PostDetailPage() {
     }
   };
 
+  /**
+   * Load page data on first render and whenever the post ID changes.
+   */
   useEffect(() => {
     const run = async () => {
       try {
@@ -152,17 +273,26 @@ export default function PostDetailPage() {
     void run();
   }, [numericPostId]);
 
+  /**
+   * Resolve source site name from source_site_id.
+   */
   const siteName = useMemo(() => {
     if (!post) return "-";
-    return sites.find((site) => site.id === post.source_site_id)?.name || String(post.source_site_id);
+
+    return (
+      sites.find((site) => site.id === post.source_site_id)?.name ||
+      String(post.source_site_id)
+    );
   }, [post, sites]);
 
-  const contentHtml =
-    post?.cleaned_content ||
-    post?.content ||
-    post?.raw_content ||
-    "";
+  /**
+   * Choose the best available content field for preview.
+   */
+  const contentHtml = post?.cleaned_content || post?.content || post?.raw_content || "";
 
+  /**
+   * Prepare tags for display in the UI.
+   */
   const tagsText = useMemo(() => {
     if (!post) return "-";
 
@@ -181,6 +311,9 @@ export default function PostDetailPage() {
     return "-";
   }, [post]);
 
+  /**
+   * Prepare categories for display in the UI.
+   */
   const categoriesText = useMemo(() => {
     if (!post) return "-";
 
@@ -199,46 +332,56 @@ export default function PostDetailPage() {
     return "-";
   }, [post]);
 
+  /**
+   * Filter active templates usable for Twitter content generation.
+   */
   const twitterTemplates = useMemo(() => {
     return templates.filter(
       (template) =>
         template.is_active &&
-        (
-          template.platform === "twitter" ||
+        (template.platform === "twitter" ||
           template.platform === "generic" ||
-          template.platform === null
-        )
+          template.platform === null)
     );
   }, [templates]);
 
+  /**
+   * Filter active templates usable for Facebook content generation.
+   */
   const facebookTemplates = useMemo(() => {
     return templates.filter(
       (template) =>
         template.is_active &&
-        (
-          template.platform === "facebook" ||
+        (template.platform === "facebook" ||
           template.platform === "generic" ||
-          template.platform === null
-        )
+          template.platform === null)
     );
   }, [templates]);
 
+  /**
+   * Filter active templates usable for hashtag generation.
+   */
   const hashtagTemplates = useMemo(() => {
     return templates.filter(
       (template) =>
         template.is_active &&
-        (
-          template.template_type === "hashtags" ||
+        (template.template_type === "hashtags" ||
           template.platform === "generic" ||
-          template.platform === null
-        )
+          template.platform === null)
     );
   }, [templates]);
 
+  /**
+   * Only show active Ollama profiles in the dropdown.
+   */
   const activeProfiles = useMemo(() => {
     return profiles.filter((profile) => profile.is_active);
   }, [profiles]);
 
+  /**
+   * Trigger AI generation for the selected prompt template and profile.
+   * Re-loads page data after success so latest outputs/history refresh immediately.
+   */
   const handleGenerate = async (
     promptTemplateIdValue: string,
     label: string
@@ -285,14 +428,20 @@ export default function PostDetailPage() {
         description="Detailed view of a single post."
       />
 
+      {/* Loading state */}
       {loading ? <Loader /> : null}
 
+      {/* Error state */}
       {!loading && error ? (
         <EmptyState title="Unable to load post detail" description={error} />
       ) : null}
 
+      {/* Main page content */}
       {!loading && !error && post ? (
         <div className="detail-stack">
+          {/* -------------------------
+              Main Post Information
+             ------------------------- */}
           <div className="card">
             <div className="detail-top">
               <div>
@@ -307,24 +456,36 @@ export default function PostDetailPage() {
                 <span className="detail-meta-label">Source Site</span>
                 <span>{siteName}</span>
               </div>
+
               <div className="detail-meta-item">
                 <span className="detail-meta-label">Published At</span>
-                <span>{formatDate((post as any).original_published_at || post.published_at)}</span>
+                <span>
+                  {formatDate((post as any).original_published_at || post.published_at)}
+                </span>
               </div>
+
               <div className="detail-meta-item">
                 <span className="detail-meta-label">Fetched At</span>
-                <span>{formatDate((post as any).last_fetched_at || post.fetched_at || post.created_at)}</span>
+                <span>
+                  {formatDate(
+                    (post as any).last_fetched_at || post.fetched_at || post.created_at
+                  )}
+                </span>
               </div>
+
               <div className="detail-meta-item">
                 <span className="detail-meta-label">Author</span>
                 <span>{post.author_name || "-"}</span>
               </div>
             </div>
 
+            {/* -------------------------
+                AI Actions Panel
+               ------------------------- */}
             <div className="detail-section">
               <h3>AI Actions</h3>
 
-              <div className="ai-actions-grid">
+              <div className="ai-panel">
                 <div className="form-field">
                   <label>Ollama Profile</label>
                   <select
@@ -340,25 +501,26 @@ export default function PostDetailPage() {
                   </select>
                 </div>
 
-                <div className="form-field">
-                  <label>Twitter Template</label>
-                  <select
-                    value={twitterTemplateId}
-                    onChange={(e) => setTwitterTemplateId(e.target.value)}
-                  >
-                    <option value="">Select template</option>
-                    {twitterTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Twitter generation */}
+                <div className="ai-action-row">
+                  <div className="form-field">
+                    <label>Twitter Template</label>
+                    <select
+                      value={twitterTemplateId}
+                      onChange={(e) => setTwitterTemplateId(e.target.value)}
+                    >
+                      <option value="">Select template</option>
+                      {twitterTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-field ai-action-cell">
-                  <label>&nbsp;</label>
                   <button
-                    className="btn btn-primary"
+                    type="button"
+                    className="btn btn-primary ai-generate-btn"
                     disabled={generationLoading}
                     onClick={() => void handleGenerate(twitterTemplateId, "Twitter summary")}
                   >
@@ -366,25 +528,26 @@ export default function PostDetailPage() {
                   </button>
                 </div>
 
-                <div className="form-field">
-                  <label>Facebook Template</label>
-                  <select
-                    value={facebookTemplateId}
-                    onChange={(e) => setFacebookTemplateId(e.target.value)}
-                  >
-                    <option value="">Select template</option>
-                    {facebookTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Facebook generation */}
+                <div className="ai-action-row">
+                  <div className="form-field">
+                    <label>Facebook Template</label>
+                    <select
+                      value={facebookTemplateId}
+                      onChange={(e) => setFacebookTemplateId(e.target.value)}
+                    >
+                      <option value="">Select template</option>
+                      {facebookTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-field ai-action-cell">
-                  <label>&nbsp;</label>
                   <button
-                    className="btn btn-primary"
+                    type="button"
+                    className="btn btn-primary ai-generate-btn"
                     disabled={generationLoading}
                     onClick={() => void handleGenerate(facebookTemplateId, "Facebook summary")}
                   >
@@ -392,46 +555,49 @@ export default function PostDetailPage() {
                   </button>
                 </div>
 
-                <div className="form-field">
-                  <label>Hashtag Template</label>
-                  <select
-                    value={hashtagTemplateId}
-                    onChange={(e) => setHashtagTemplateId(e.target.value)}
-                  >
-                    <option value="">Select template</option>
-                    {hashtagTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Hashtag generation */}
+                <div className="ai-action-row">
+                  <div className="form-field">
+                    <label>Hashtag Template</label>
+                    <select
+                      value={hashtagTemplateId}
+                      onChange={(e) => setHashtagTemplateId(e.target.value)}
+                    >
+                      <option value="">Select template</option>
+                      {hashtagTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-field ai-action-cell">
-                  <label>&nbsp;</label>
                   <button
-                    className="btn btn-primary"
+                    type="button"
+                    className="btn btn-primary ai-generate-btn"
                     disabled={generationLoading}
                     onClick={() => void handleGenerate(hashtagTemplateId, "hashtags")}
                   >
                     {generationLoading ? "Generating..." : "Generate Hashtags"}
                   </button>
                 </div>
+
+                {/* Success / error messages */}
+                {generationMessage ? (
+                  <div className="inline-message inline-message-success">
+                    {generationMessage}
+                  </div>
+                ) : null}
+
+                {generationError ? (
+                  <div className="inline-message inline-message-error">
+                    {generationError}
+                  </div>
+                ) : null}
               </div>
-
-              {generationMessage ? (
-                <div className="inline-message inline-message-success">
-                  {generationMessage}
-                </div>
-              ) : null}
-
-              {generationError ? (
-                <div className="inline-message inline-message-error">
-                  {generationError}
-                </div>
-              ) : null}
             </div>
 
+            {/* External original post link */}
             {post.external_post_url ? (
               <div className="detail-links">
                 <a
@@ -445,36 +611,36 @@ export default function PostDetailPage() {
               </div>
             ) : null}
 
+            {/* Excerpt */}
             {post.excerpt ? (
-              <div className="detail-section">
-                <h3>Excerpt</h3>
+              <CollapsibleSection title="Excerpt">
                 <p className="detail-paragraph">{post.excerpt}</p>
-              </div>
+              </CollapsibleSection>
             ) : null}
 
+            {/* Featured image */}
             {post.featured_image_url ? (
-              <div className="detail-section">
-                <h3>Featured Image</h3>
+              <CollapsibleSection title="Featured Image">
                 <img
                   src={post.featured_image_url}
                   alt={post.title}
                   className="detail-image"
                 />
-              </div>
+              </CollapsibleSection>
             ) : null}
 
-            <div className="detail-section">
-              <h3>Categories</h3>
+            {/* Categories */}
+            <CollapsibleSection title="Categories">
               <pre className="json-preview">{categoriesText}</pre>
-            </div>
+            </CollapsibleSection>
 
-            <div className="detail-section">
-              <h3>Tags</h3>
+            {/* Tags */}
+            <CollapsibleSection title="Tags">
               <pre className="json-preview">{tagsText}</pre>
-            </div>
+            </CollapsibleSection>
 
-            <div className="detail-section">
-              <h3>Content Preview</h3>
+            {/* Main article/content preview */}
+            <CollapsibleSection title="Content Preview">
               {contentHtml ? (
                 <div
                   className="content-preview"
@@ -483,79 +649,108 @@ export default function PostDetailPage() {
               ) : (
                 <p className="muted">No content available.</p>
               )}
-            </div>
+            </CollapsibleSection>
           </div>
 
+          {/* -------------------------
+              Latest AI Outputs
+             ------------------------- */}
           <div className="detail-grid-2">
             <div className="card">
               <h3>Latest Twitter Generation</h3>
               <p className="detail-paragraph">
-                {latestAI?.twitter_summary || "No latest Twitter generation found."}
+                {extractLatestText(latestAI?.twitter_summary) ||
+                  "No latest Twitter generation found."}
               </p>
+
+              {extractLatestMeta(latestAI?.twitter_summary) ? (
+                <p className="muted small-text">
+                  {extractLatestMeta(latestAI?.twitter_summary)}
+                </p>
+              ) : null}
             </div>
 
             <div className="card">
               <h3>Latest Facebook Generation</h3>
               <p className="detail-paragraph">
-                {latestAI?.facebook_summary || "No latest Facebook generation found."}
+                {extractLatestText(latestAI?.facebook_summary) ||
+                  "No latest Facebook generation found."}
               </p>
+
+              {extractLatestMeta(latestAI?.facebook_summary) ? (
+                <p className="muted small-text">
+                  {extractLatestMeta(latestAI?.facebook_summary)}
+                </p>
+              ) : null}
             </div>
           </div>
 
+          {/* Latest hashtags */}
           <div className="card">
-            <h3>Latest Hashtags</h3>
-            <pre className="json-preview">{latestAI?.hashtags || "-"}</pre>
+            <CollapsibleSection title="Latest Hashtags">
+              <pre className="json-preview">
+                {extractLatestText(latestAI?.hashtags) || "-"}
+              </pre>
+            </CollapsibleSection>
           </div>
 
+          {/* -------------------------
+              AI Generation History
+             ------------------------- */}
           <div className="card">
-            <h3>AI Generation History</h3>
+            <CollapsibleSection title="AI Generation History">
+              {generations.length === 0 ? (
+                <p className="muted">No AI generations found for this post.</p>
+              ) : (
+                <div className="generation-list">
+                  {generations.map((item, index) => (
+                    <div key={item.id ?? index} className="generation-card">
+                      <div className="generation-head">
+                        <div>
+                          <div className="table-strong">
+                            {item.platform || item.generation_type || "AI Output"}
+                          </div>
+                          <div className="muted small-text">
+                            {formatDate(item.created_at)}
+                          </div>
+                        </div>
 
-            {generations.length === 0 ? (
-              <p className="muted">No AI generations found for this post.</p>
-            ) : (
-              <div className="generation-list">
-                {generations.map((item, index) => (
-                  <div key={item.id ?? index} className="generation-card">
-                    <div className="generation-head">
-                      <div>
-                        <div className="table-strong">
-                          {item.platform || item.generation_type || "AI Output"}
-                        </div>
-                        <div className="muted small-text">
-                          {formatDate(item.created_at)}
-                        </div>
+                        <StatusBadge
+                          label={item.status || "done"}
+                          tone={item.status === "failed" ? "danger" : "success"}
+                        />
                       </div>
-                      <StatusBadge
-                        label={item.status || "done"}
-                        tone={item.status === "failed" ? "danger" : "success"}
-                      />
-                    </div>
 
-                    <div className="generation-meta">
-                      <span>Model: {item.model_name || "-"}</span>
-                      <span>Template ID: {item.prompt_template_id ?? "-"}</span>
-                    </div>
+                      <div className="generation-meta">
+                        <span>Model: {item.model_name || "-"}</span>
+                        <span>Template ID: {item.prompt_template_id ?? "-"}</span>
+                      </div>
 
-                    <div className="detail-section">
-                      <h4>Generated Text</h4>
-                      <p className="detail-paragraph">{item.generated_text || "-"}</p>
-                    </div>
-
-                    <div className="detail-section">
-                      <h4>Hashtags</h4>
-                      <pre className="json-preview">{item.hashtags || "-"}</pre>
-                    </div>
-
-                    {item.error_message ? (
                       <div className="detail-section">
-                        <h4>Error</h4>
-                        <pre className="json-preview">{item.error_message}</pre>
+                        <h4>Generated Text</h4>
+                        <p className="detail-paragraph">
+                          {(item as any).generated_text ||
+                            (item as any).output_text ||
+                            "-"}
+                        </p>
                       </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
+
+                      <div className="detail-section">
+                        <h4>Hashtags</h4>
+                        <pre className="json-preview">{item.hashtags || "-"}</pre>
+                      </div>
+
+                      {item.error_message ? (
+                        <div className="detail-section">
+                          <h4>Error</h4>
+                          <pre className="json-preview">{item.error_message}</pre>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CollapsibleSection>
           </div>
         </div>
       ) : null}
