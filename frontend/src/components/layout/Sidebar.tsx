@@ -7,6 +7,7 @@ const navItems = [
   { to: "/source-fetch-configs", label: "Fetch Configs" },
   { to: "/posts", label: "Posts" },
   { to: "/publishing", label: "Ollama Profiles" },
+  { to: "/settings", label: "Prompt Templates" },
   { to: "/activity-logs", label: "Activity Logs" },
   { to: "/settings", label: "Social Accounts" },
 ];

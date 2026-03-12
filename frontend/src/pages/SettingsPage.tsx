@@ -2,145 +2,202 @@ import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../components/layout/PageHeader";
 import Loader from "../components/common/Loader";
 import EmptyState from "../components/common/EmptyState";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import DataTable from "../components/common/DataTable";
 import StatusBadge from "../components/common/StatusBadge";
-import SocialAccountModal from "../components/social-accounts/SocialAccountModal";
-import { getSourceSites } from "../api/sourceSites";
-import { createSocialAccount, getSocialAccounts } from "../api/socialAccounts";
-import type { SocialAccount, SocialAccountPayload } from "../types/socialAccount";
-import type { SourceSite } from "../types/sourceSite";
+import PromptTemplateModal from "../components/prompt-templates/PromptTemplateModal";
+import {
+  createPromptTemplate,
+  deletePromptTemplate,
+  getPromptTemplates,
+  updatePromptTemplate,
+} from "../api/promptTemplates";
+import type {
+  PromptTemplate,
+  PromptTemplatePayload,
+} from "../types/promptTemplate";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-  const [sites, setSites] = useState<SourceSite[]>([]);
+  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [error, setError] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<PromptTemplate | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState<PromptTemplate | null>(null);
 
-  const loadData = async () => {
+  const loadTemplates = async () => {
     try {
       setLoading(true);
       setError("");
-      const [accountsData, sitesData] = await Promise.all([
-        getSocialAccounts(),
-        getSourceSites(),
-      ]);
-      setAccounts(accountsData);
-      setSites(sitesData);
+      const data = await getPromptTemplates();
+      setTemplates(data);
     } catch (err) {
       console.error(err);
-      setError("Failed to load social accounts.");
+      setError("Failed to load prompt templates.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadData();
+    void loadTemplates();
   }, []);
 
-  const handleCreate = async (payload: SocialAccountPayload) => {
+  const handleCreate = async (payload: PromptTemplatePayload) => {
     try {
       setSaving(true);
-      await createSocialAccount(payload);
+      await createPromptTemplate(payload);
       setIsCreateOpen(false);
-      await loadData();
+      await loadTemplates();
     } catch (err) {
       console.error(err);
-      alert("Failed to create social account.");
+      alert("Failed to create prompt template.");
     } finally {
       setSaving(false);
     }
   };
 
-  const siteMap = useMemo(() => {
-    return new Map(sites.map((site) => [site.id, site.name]));
-  }, [sites]);
+  const handleUpdate = async (payload: PromptTemplatePayload) => {
+    if (!editingTemplate) return;
+
+    try {
+      setSaving(true);
+      await updatePromptTemplate(editingTemplate.id, payload);
+      setEditingTemplate(null);
+      await loadTemplates();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update prompt template.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingTemplate) return;
+
+    try {
+      setSaving(true);
+      await deletePromptTemplate(deletingTemplate.id);
+      setDeletingTemplate(null);
+      await loadTemplates();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete prompt template.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const columns = useMemo(
     () => [
       {
         key: "name",
         title: "Name",
-        render: (row: SocialAccount) => (
+        render: (row: PromptTemplate) => (
           <div>
             <div className="table-strong">{row.name}</div>
-            <div className="muted small-text">{row.account_identifier || "-"}</div>
+            <div className="muted small-text">{row.notes || "-"}</div>
           </div>
         ),
       },
       {
         key: "platform",
         title: "Platform",
-        render: (row: SocialAccount) => row.platform,
+        render: (row: PromptTemplate) => row.platform || "-",
       },
       {
-        key: "source_site",
-        title: "Source Site",
-        render: (row: SocialAccount) => siteMap.get(row.source_site_id) || row.source_site_id,
+        key: "template_type",
+        title: "Type",
+        render: (row: PromptTemplate) => row.template_type || "-",
       },
       {
-        key: "page_id",
-        title: "Page ID",
-        render: (row: SocialAccount) => row.page_id || "-",
-      },
-      {
-        key: "client_id",
-        title: "Client ID",
-        render: (row: SocialAccount) => row.client_id || "-",
+        key: "output_format",
+        title: "Output",
+        render: (row: PromptTemplate) => row.output_format || "-",
       },
       {
         key: "status",
         title: "Status",
-        render: (row: SocialAccount) => (
+        render: (row: PromptTemplate) => (
           <StatusBadge
             label={row.is_active ? "active" : "inactive"}
             tone={row.is_active ? "success" : "warning"}
           />
         ),
       },
+      {
+        key: "actions",
+        title: "Actions",
+        render: (row: PromptTemplate) => (
+          <div className="table-actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => setEditingTemplate(row)}>
+              Edit
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={() => setDeletingTemplate(row)}>
+              Delete
+            </button>
+          </div>
+        ),
+      },
     ],
-    [siteMap]
+    []
   );
 
   return (
     <div>
       <PageHeader
-        title="Social Accounts"
-        description="Manage connected social media account configurations."
+        title="Prompt Templates"
+        description="Manage reusable prompts for generation workflows."
       />
 
       <div className="page-actions">
         <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)}>
-          Add Social Account
+          Add Prompt Template
         </button>
       </div>
 
       {loading ? <Loader /> : null}
 
       {!loading && error ? (
-        <EmptyState title="Unable to load social accounts" description={error} />
+        <EmptyState title="Unable to load prompt templates" description={error} />
       ) : null}
 
-      {!loading && !error && accounts.length === 0 ? (
+      {!loading && !error && templates.length === 0 ? (
         <EmptyState
-          title="No social accounts found"
-          description="Create your first social account configuration."
+          title="No prompt templates found"
+          description="Create your first reusable generation prompt."
         />
       ) : null}
 
-      {!loading && !error && accounts.length > 0 ? (
-        <DataTable columns={columns} rows={accounts} getRowKey={(row) => row.id} />
+      {!loading && !error && templates.length > 0 ? (
+        <DataTable columns={columns} rows={templates} getRowKey={(row) => row.id} />
       ) : null}
 
-      <SocialAccountModal
+      <PromptTemplateModal
         open={isCreateOpen}
-        title="Create Social Account"
-        sourceSites={sites}
+        title="Create Prompt Template"
         loading={saving}
         onSubmit={handleCreate}
         onClose={() => setIsCreateOpen(false)}
+      />
+
+      <PromptTemplateModal
+        open={!!editingTemplate}
+        title="Edit Prompt Template"
+        initialData={editingTemplate}
+        loading={saving}
+        onSubmit={handleUpdate}
+        onClose={() => setEditingTemplate(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deletingTemplate}
+        title="Delete Prompt Template"
+        message={`Are you sure you want to delete "${deletingTemplate?.name ?? ""}"?`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeletingTemplate(null)}
       />
     </div>
   );
