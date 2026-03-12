@@ -1,6 +1,7 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,6 +14,32 @@ from app.services.logs.activity_logger import log_activity
 from app.services.source.import_service import import_posts_from_config
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
+
+
+class ImportPostsRequest(BaseModel):
+    per_page: Optional[int] = None
+    page: Optional[int] = None
+
+
+def build_latest_ai_map(generations: list[AIGeneration]) -> dict:
+    latest = {
+        "twitter_summary": None,
+        "facebook_summary": None,
+        "hashtags": None,
+    }
+
+    for row in generations:
+        if row.generation_type in latest and latest[row.generation_type] is None:
+            latest[row.generation_type] = {
+                "generation_id": row.id,
+                "output_text": row.output_text,
+                "generated_at": row.generated_at,
+                "prompt_template_id": row.prompt_template_id,
+                "ollama_profile_id": row.ollama_profile_id,
+                "hashtags": getattr(row, "hashtags", None),
+            }
+
+    return latest
 
 
 @router.get("", response_model=list[PostListRead])
@@ -35,17 +62,12 @@ def list_posts(
     if search:
         like_term = f"%{search}%"
         query = query.filter(
-            (Post.title.ilike(like_term)) |
-            (Post.slug.ilike(like_term)) |
-            (Post.excerpt.ilike(like_term))
+            (Post.title.ilike(like_term))
+            | (Post.slug.ilike(like_term))
+            | (Post.excerpt.ilike(like_term))
         )
 
-    return (
-        query.order_by(Post.id.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    return query.order_by(Post.id.desc()).offset(offset).limit(limit).all()
 
 
 @router.get("/{post_id}", response_model=PostRead)
@@ -69,21 +91,7 @@ def get_post_detail(post_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    latest = {
-        "twitter_summary": None,
-        "facebook_summary": None,
-        "hashtags": None,
-    }
-
-    for row in generations:
-        if row.generation_type in latest and latest[row.generation_type] is None:
-            latest[row.generation_type] = {
-                "generation_id": row.id,
-                "output_text": row.output_text,
-                "generated_at": row.generated_at,
-                "prompt_template_id": row.prompt_template_id,
-                "ollama_profile_id": row.ollama_profile_id,
-            }
+    latest = build_latest_ai_map(generations)
 
     return {
         "post": {
@@ -142,21 +150,7 @@ def get_post_ai_latest(post_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    latest = {
-        "twitter_summary": None,
-        "facebook_summary": None,
-        "hashtags": None,
-    }
-
-    for row in generations:
-        if row.generation_type in latest and latest[row.generation_type] is None:
-            latest[row.generation_type] = {
-                "generation_id": row.id,
-                "output_text": row.output_text,
-                "generated_at": row.generated_at,
-                "prompt_template_id": row.prompt_template_id,
-                "ollama_profile_id": row.ollama_profile_id,
-            }
+    latest = build_latest_ai_map(generations)
 
     return {
         "post_id": post_id,
@@ -165,19 +159,46 @@ def get_post_ai_latest(post_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/import/{config_id}", response_model=ImportPostsResponse)
-async def import_posts(config_id: int, db: Session = Depends(get_db)):
+async def import_posts(
+    config_id: int,
+    payload: Optional[ImportPostsRequest] = Body(default=None),
+    db: Session = Depends(get_db),
+):
     config = db.query(SourceFetchConfig).filter(SourceFetchConfig.id == config_id).first()
     if not config:
         raise HTTPException(status_code=404, detail="Fetch config not found")
 
-    result = await import_posts_from_config(db, config)
+    try:
+        runtime_query_params = {}
 
-    log_activity(
-        db,
-        event_type="posts_imported",
-        entity_type="source_fetch_config",
-        entity_id=config.id,
-        message=f"Posts imported using fetch config '{config.fetch_name}'.",
-        details=result,
-    )
-    return result
+        if payload is not None:
+            if payload.per_page is not None:
+                runtime_query_params["per_page"] = payload.per_page
+
+            if payload.page is not None:
+                runtime_query_params["page"] = payload.page
+
+        result = await import_posts_from_config(
+            db=db,
+            config=config,
+            runtime_query_params=runtime_query_params,
+        )
+
+        log_activity(
+            db,
+            event_type="posts_imported",
+            entity_type="source_fetch_config",
+            entity_id=config.id,
+            message=f"Posts imported using fetch config '{config.fetch_name}'.",
+            details={
+                "result": result,
+                "runtime_query_params": runtime_query_params,
+            },
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

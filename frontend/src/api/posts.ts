@@ -50,4 +50,12 @@ export async function getPostLatestAI(postId: number): Promise<PostLatestAiApiRe
   return response.data;
 }
 
+export async function importPostsFromConfig(
+  configId: number,
+  payload?: { per_page?: number; page?: number }
+): Promise<unknown> {
+  const response = await api.post(`/posts/import/${configId}`, payload ?? {});
+  return response.data;
+}
+
 export type { PostDetailApiResponse, PostLatestAiApiResponse };

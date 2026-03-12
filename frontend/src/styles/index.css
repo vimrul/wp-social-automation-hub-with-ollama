@@ -772,3 +772,32 @@ textarea {
 .collapse-body {
   padding: 0 16px 16px;
 }
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fetch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.fetch-actions-secondary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-grid-single {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 900px) {
+  .fetch-actions {
+    min-width: auto;
+  }
+}

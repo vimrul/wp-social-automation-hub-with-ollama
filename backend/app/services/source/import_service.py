@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 from sqlalchemy.orm import Session
@@ -25,9 +25,18 @@ def _extract_featured_image(item: Dict[str, Any], configured_value: Any) -> Any:
     return item.get("jetpack_featured_media_url")
 
 
-async def import_posts_from_config(db: Session, config: SourceFetchConfig) -> Dict[str, Any]:
+async def import_posts_from_config(
+    db: Session,
+    config: SourceFetchConfig,
+    runtime_query_params: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     headers = _safe_json_loads(config.request_headers_json, {})
-    params = _safe_json_loads(config.query_params_json, {})
+    saved_params = _safe_json_loads(config.query_params_json, {})
+    params = saved_params.copy()
+
+    if runtime_query_params:
+        params.update(runtime_query_params)
+
     auth = None
 
     if config.auth_type == "bearer" and config.auth_token_encrypted:
@@ -185,4 +194,5 @@ async def import_posts_from_config(db: Session, config: SourceFetchConfig) -> Di
         "updated_count": updated_count,
         "skipped_count": skipped_count,
         "message": "Posts imported successfully",
+        "applied_query_params": params,
     }

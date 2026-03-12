@@ -6,6 +6,7 @@ import ConfirmDialog from "../components/common/ConfirmDialog";
 import DataTable from "../components/common/DataTable";
 import StatusBadge from "../components/common/StatusBadge";
 import SourceFetchConfigModal from "../components/source-fetch-configs/SourceFetchConfigModal";
+import ImportOptionsModal from "../components/source-fetch-configs/ImportOptionsModal";
 import { getSourceSites } from "../api/sourceSites";
 import {
   createSourceFetchConfig,
@@ -14,6 +15,7 @@ import {
   testSourceFetchConfig,
   updateSourceFetchConfig,
 } from "../api/sourceFetchConfigs";
+import { importPostsFromConfig } from "../api/posts";
 import type { SourceSite } from "../types/sourceSite";
 import type {
   SourceFetchConfig,
@@ -29,7 +31,10 @@ export default function SourceFetchConfigsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SourceFetchConfig | null>(null);
   const [deletingConfig, setDeletingConfig] = useState<SourceFetchConfig | null>(null);
+  const [importingConfig, setImportingConfig] = useState<SourceFetchConfig | null>(null);
   const [testResult, setTestResult] = useState<string>("");
+  const [importResult, setImportResult] = useState<string>("");
+  const [runningImportId, setRunningImportId] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -111,6 +116,22 @@ export default function SourceFetchConfigsPage() {
     }
   };
 
+  const handleImport = async (payload: { per_page?: number; page?: number }) => {
+    if (!importingConfig) return;
+
+    try {
+      setRunningImportId(importingConfig.id);
+      const result = await importPostsFromConfig(importingConfig.id, payload);
+      setImportResult(JSON.stringify(result, null, 2));
+      setImportingConfig(null);
+    } catch (err) {
+      console.error(err);
+      setImportResult("Import failed. Check backend logs or request shape.");
+    } finally {
+      setRunningImportId(null);
+    }
+  };
+
   const siteMap = useMemo(() => {
     return new Map(sites.map((site) => [site.id, site.name]));
   }, [sites]);
@@ -161,21 +182,31 @@ export default function SourceFetchConfigsPage() {
         key: "actions",
         title: "Actions",
         render: (row: SourceFetchConfig) => (
-          <div className="table-actions">
-            <button className="btn btn-secondary btn-sm" onClick={() => handleTest(row)}>
-              Test
+          <div className="fetch-actions">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setImportingConfig(row)}
+              disabled={runningImportId === row.id}
+            >
+              {runningImportId === row.id ? "Importing..." : "Run Import"}
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => setEditingConfig(row)}>
-              Edit
-            </button>
-            <button className="btn btn-danger btn-sm" onClick={() => setDeletingConfig(row)}>
-              Delete
-            </button>
+
+            <div className="fetch-actions-secondary">
+              <button className="btn btn-secondary btn-sm" onClick={() => handleTest(row)}>
+                Test
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setEditingConfig(row)}>
+                Edit
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={() => setDeletingConfig(row)}>
+                Delete
+              </button>
+            </div>
           </div>
         ),
       },
     ],
-    [siteMap]
+    [siteMap, runningImportId]
   );
 
   return (
@@ -215,6 +246,13 @@ export default function SourceFetchConfigsPage() {
         </div>
       ) : null}
 
+      {importResult ? (
+        <div className="card">
+          <h3>Last Import Result</h3>
+          <pre className="json-preview">{importResult}</pre>
+        </div>
+      ) : null}
+
       <SourceFetchConfigModal
         open={isCreateOpen}
         title="Create Source Fetch Config"
@@ -240,6 +278,14 @@ export default function SourceFetchConfigsPage() {
         message={`Are you sure you want to delete "${deletingConfig?.fetch_name ?? ""}"?`}
         onConfirm={handleDelete}
         onCancel={() => setDeletingConfig(null)}
+      />
+
+      <ImportOptionsModal
+        open={!!importingConfig}
+        configName={importingConfig?.fetch_name}
+        loading={runningImportId !== null}
+        onSubmit={handleImport}
+        onClose={() => setImportingConfig(null)}
       />
     </div>
   );
