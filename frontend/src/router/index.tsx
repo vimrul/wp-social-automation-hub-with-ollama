@@ -10,6 +10,7 @@ import SettingsPage from "../pages/SettingsPage";
 import ActivityLogsPage from "../pages/ActivityLogsPage";
 import LoginPage from "../pages/LoginPage";
 import SourceFetchConfigsPage from "../pages/SourceFetchConfigsPage";
+import SocialAccountsPage from "../pages/SocialAccountsPage";
 
 const router = createBrowserRouter([
   {
@@ -25,13 +26,14 @@ const router = createBrowserRouter([
       { path: "posts/:postId", element: <PostDetailPage /> },
       { path: "publishing", element: <PublishingPage /> },
       { path: "activity-logs", element: <ActivityLogsPage /> },
-      { path: "settings", element: <SettingsPage /> }
-    ]
+      { path: "prompt-templates", element: <SettingsPage /> },
+      { path: "social-accounts", element: <SocialAccountsPage /> },
+    ],
   },
   {
     path: "/login",
-    element: <LoginPage />
-  }
+    element: <LoginPage />,
+  },
 ]);
 
 export default router;
