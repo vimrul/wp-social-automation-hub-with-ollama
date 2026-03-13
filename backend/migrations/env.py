@@ -17,6 +17,7 @@ from app.models.prompt_template import PromptTemplate
 from app.models.ai_generation import AIGeneration
 from app.models.social_account import SocialAccount
 from app.models.post_publish_log import PostPublishLog
+from app.models.user import User
 
 config = context.config
 

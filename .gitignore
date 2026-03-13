@@ -37,6 +37,7 @@ dist/
 build/
 coverage/
 vite.svg
+postgres_data/
 
 # IDEs
 .vscode/

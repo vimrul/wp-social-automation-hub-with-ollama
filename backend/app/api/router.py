@@ -10,8 +10,12 @@ from app.api.v1.ai_generations import router as ai_generations_router
 from app.api.v1.social_accounts import router as social_accounts_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.publishing import router as publishing_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.users import router as users_router
 
 api_router = APIRouter()
+api_router.include_router(auth_router)
+api_router.include_router(users_router)
 api_router.include_router(health_router)
 api_router.include_router(source_sites_router)
 api_router.include_router(source_fetch_configs_router)

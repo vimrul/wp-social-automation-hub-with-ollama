@@ -1,30 +1,36 @@
 export type SocialAccount = {
   id: number;
-  source_site_id: number;
-  platform: string;
   name: string;
+  platform: string;
+  source_site_id: number | null;
   account_identifier: string | null;
   page_id: string | null;
   app_id: string | null;
   client_id: string | null;
-  is_active: boolean;
   account_metadata_json: string | null;
-  created_at?: string;
-  updated_at?: string;
+  is_active: boolean;
+  last_validated_at: string | null;
+  created_at: string;
+  updated_at: string;
+
+  app_secret_configured: boolean;
+  client_secret_configured: boolean;
+  access_token_configured: boolean;
+  refresh_token_configured: boolean;
 };
 
 export type SocialAccountPayload = {
-  source_site_id: number;
-  platform: string;
   name: string;
-  account_identifier: string;
-  page_id: string;
-  app_id: string;
-  app_secret: string;
-  client_id: string;
-  client_secret: string;
-  access_token: string;
-  refresh_token: string;
-  account_metadata_json: string;
+  platform: string;
+  source_site_id?: number | null;
+  account_identifier?: string;
+  page_id?: string;
+  app_id?: string;
+  app_secret?: string;
+  client_id?: string;
+  client_secret?: string;
+  access_token?: string;
+  refresh_token?: string;
+  account_metadata_json?: string;
   is_active: boolean;
 };

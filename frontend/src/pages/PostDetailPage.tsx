@@ -101,6 +101,10 @@ function publishTone(status?: string) {
   return status === "success" ? "success" : "danger";
 }
 
+function normalizePlatform(value?: string | null) {
+  return (value || "").toLowerCase();
+}
+
 export default function PostDetailPage() {
   const { postId } = useParams();
   const numericPostId = Number(postId);
@@ -125,6 +129,8 @@ export default function PostDetailPage() {
   const [selectedSocialAccountId, setSelectedSocialAccountId] = useState("");
   const [publishContentOverride, setPublishContentOverride] = useState("");
   const [publishHashtagsOverride, setPublishHashtagsOverride] = useState("");
+  const [useManualPublishText, setUseManualPublishText] = useState(false);
+  const [useManualPublishHashtags, setUseManualPublishHashtags] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
   const [publishMessage, setPublishMessage] = useState("");
   const [publishError, setPublishError] = useState("");
@@ -266,6 +272,11 @@ export default function PostDetailPage() {
     return new Map(socialAccounts.map((account) => [account.id, account]));
   }, [socialAccounts]);
 
+  const selectedSocialAccount = useMemo(() => {
+    if (!selectedSocialAccountId) return null;
+    return socialAccounts.find((account) => account.id === Number(selectedSocialAccountId)) || null;
+  }, [selectedSocialAccountId, socialAccounts]);
+
   const contentHtml = post?.cleaned_content || (post as any)?.content || post?.raw_content || "";
 
   const tagsText = useMemo(() => {
@@ -345,6 +356,49 @@ export default function PostDetailPage() {
     return socialAccounts.filter((account) => account.is_active);
   }, [socialAccounts]);
 
+  const latestPlatformText = useMemo(() => {
+    const platform = normalizePlatform(selectedSocialAccount?.platform);
+
+    if (platform === "facebook") {
+      return extractLatestText(latestAI?.facebook_summary);
+    }
+
+    if (platform === "twitter" || platform === "x") {
+      return extractLatestText(latestAI?.twitter_summary);
+    }
+
+    return "";
+  }, [selectedSocialAccount, latestAI]);
+
+  const latestHashtagText = useMemo(() => {
+    return extractLatestText(latestAI?.hashtags);
+  }, [latestAI]);
+
+  const effectivePublishText = useMemo(() => {
+    if (useManualPublishText) {
+      return publishContentOverride.trim();
+    }
+    return latestPlatformText.trim();
+  }, [useManualPublishText, publishContentOverride, latestPlatformText]);
+
+  const effectivePublishHashtags = useMemo(() => {
+    if (useManualPublishHashtags) {
+      return publishHashtagsOverride.trim();
+    }
+    return latestHashtagText.trim();
+  }, [useManualPublishHashtags, publishHashtagsOverride, latestHashtagText]);
+
+  const finalPublishPreview = useMemo(() => {
+    const base = effectivePublishText.trim();
+    const tags = effectivePublishHashtags.trim();
+
+    if (base && tags) return `${base}\n\n${tags}`;
+    if (base) return base;
+    return tags;
+  }, [effectivePublishText, effectivePublishHashtags]);
+
+  const lastPublishLog = publishLogs.length > 0 ? publishLogs[0] : null;
+
   const handleGenerate = async (
     promptTemplateIdValue: string,
     label: string,
@@ -400,11 +454,15 @@ export default function PostDetailPage() {
         throw new Error("Please select a social account.");
       }
 
+      if (!finalPublishPreview.trim()) {
+        throw new Error("Nothing to publish. Generate content or enter manual text first.");
+      }
+
       const result = await publishPost({
         post_id: numericPostId,
         social_account_id: Number(selectedSocialAccountId),
-        content_text: publishContentOverride.trim() || undefined,
-        hashtags: publishHashtagsOverride.trim() || undefined,
+        content_text: effectivePublishText || undefined,
+        hashtags: effectivePublishHashtags || undefined,
       });
 
       setPublishMessage(result.message || "Published successfully.");
@@ -619,31 +677,88 @@ export default function PostDetailPage() {
                   </select>
                 </div>
 
+                {selectedSocialAccount ? (
+                  <div className="publish-context-card">
+                    <div className="publish-context-row">
+                      <span className="detail-meta-label">Selected Platform</span>
+                      <span>{selectedSocialAccount.platform}</span>
+                    </div>
+                    <div className="publish-context-row">
+                      <span className="detail-meta-label">Selected Account</span>
+                      <span>{selectedSocialAccount.name}</span>
+                    </div>
+                    <div className="publish-context-row">
+                      <span className="detail-meta-label">Default Content Source</span>
+                      <span>
+                        {normalizePlatform(selectedSocialAccount.platform) === "facebook"
+                          ? "Latest Facebook generation"
+                          : normalizePlatform(selectedSocialAccount.platform) === "twitter" ||
+                            normalizePlatform(selectedSocialAccount.platform) === "x"
+                          ? "Latest Twitter generation"
+                          : "No platform-specific generator"}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="publish-toggle-grid">
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={useManualPublishText}
+                      onChange={(e) => setUseManualPublishText(e.target.checked)}
+                    />
+                    Use manual content text
+                  </label>
+
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={useManualPublishHashtags}
+                      onChange={(e) => setUseManualPublishHashtags(e.target.checked)}
+                    />
+                    Use manual hashtags
+                  </label>
+                </div>
+
                 <div className="form-field">
-                  <label>Override Content Text (optional)</label>
+                  <label>
+                    Content Text {useManualPublishText ? "(manual)" : "(auto from latest generation)"}
+                  </label>
                   <textarea
                     rows={6}
-                    value={publishContentOverride}
+                    value={useManualPublishText ? publishContentOverride : latestPlatformText}
                     onChange={(e) => setPublishContentOverride(e.target.value)}
-                    placeholder="Leave blank to use latest generated platform summary."
+                    placeholder="Leave auto mode on to use generated content."
+                    disabled={!useManualPublishText}
                   />
                 </div>
 
                 <div className="form-field">
-                  <label>Override Hashtags (optional)</label>
+                  <label>
+                    Hashtags {useManualPublishHashtags ? "(manual)" : "(auto from latest hashtags)"}
+                  </label>
                   <textarea
                     rows={3}
-                    value={publishHashtagsOverride}
+                    value={useManualPublishHashtags ? publishHashtagsOverride : latestHashtagText}
                     onChange={(e) => setPublishHashtagsOverride(e.target.value)}
-                    placeholder="Leave blank to use latest generated hashtags."
+                    placeholder="Leave auto mode on to use generated hashtags."
+                    disabled={!useManualPublishHashtags}
                   />
+                </div>
+
+                <div className="detail-section">
+                  <h4>Final Publish Preview</h4>
+                  <pre className="publish-preview-box">
+                    {finalPublishPreview || "Nothing to publish yet."}
+                  </pre>
                 </div>
 
                 <div className="publish-actions">
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={publishLoading}
+                    disabled={publishLoading || !selectedSocialAccountId || !finalPublishPreview.trim()}
                     onClick={() => void handlePublish()}
                   >
                     {publishLoading ? "Publishing..." : "Publish Now"}
@@ -672,6 +787,32 @@ export default function PostDetailPage() {
                 {publishError ? (
                   <div className="inline-message inline-message-error">
                     {publishError}
+                  </div>
+                ) : null}
+
+                {lastPublishLog ? (
+                  <div className="publish-last-result">
+                    <div className="publish-last-result-head">
+                      <h4>Last Publish Result</h4>
+                      <StatusBadge
+                        label={lastPublishLog.status || "unknown"}
+                        tone={publishTone(lastPublishLog.status) as "success" | "danger"}
+                      />
+                    </div>
+                    <p className="muted small-text">{formatDate(lastPublishLog.created_at)}</p>
+                    {lastPublishLog.published_url ? (
+                      <a
+                        href={lastPublishLog.published_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="table-link"
+                      >
+                        {lastPublishLog.published_url}
+                      </a>
+                    ) : null}
+                    {lastPublishLog.error_message ? (
+                      <pre className="json-preview">{lastPublishLog.error_message}</pre>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -797,7 +938,9 @@ export default function PostDetailPage() {
                         <div className="generation-meta">
                           <span>
                             Social Account:{" "}
-                            {account ? `${account.name} (${account.platform})` : item.social_account_id ?? "-"}
+                            {account
+                              ? `${account.name} (${account.platform})`
+                              : item.social_account_id ?? "-"}
                           </span>
                           <span>Published ID: {item.published_id || "-"}</span>
                         </div>
