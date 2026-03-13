@@ -85,9 +85,12 @@ async def publish_post_to_social_account(
         db, post_id=post_id, platform=social_account.platform
     )
 
+    final_base_text = content_text or generated_text
+    final_hashtags = hashtags or generated_hashtags
+
     final_text = _build_publish_text(
-        base_text=content_text or generated_text,
-        hashtags=hashtags or generated_hashtags,
+        base_text=final_base_text,
+        hashtags=final_hashtags,
     )
 
     if not final_text.strip():
@@ -108,7 +111,9 @@ async def publish_post_to_social_account(
         )
         return {
             "platform": platform,
-            "text_used": final_text,
+            "text_used": final_base_text,
+            "hashtags_used": final_hashtags,
+            "full_text_used": final_text,
             **result,
         }
 
@@ -122,7 +127,9 @@ async def publish_post_to_social_account(
         )
         return {
             "platform": platform,
-            "text_used": final_text,
+            "text_used": final_base_text,
+            "hashtags_used": final_hashtags,
+            "full_text_used": final_text,
             **result,
         }
 

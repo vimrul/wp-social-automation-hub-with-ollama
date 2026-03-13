@@ -12,6 +12,8 @@ from app.schemas.ai_generation import AIGenerationRead
 from app.schemas.post import ImportPostsResponse, PostListRead, PostRead
 from app.services.logs.activity_logger import log_activity
 from app.services.source.import_service import import_posts_from_config
+from app.models.post_publish_log import PostPublishLog
+from app.schemas.post_publish_log import PostPublishLogRead
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
@@ -40,7 +42,18 @@ def build_latest_ai_map(generations: list[AIGeneration]) -> dict:
             }
 
     return latest
+@router.get("/{post_id}/publish-logs", response_model=list[PostPublishLogRead])
+def list_post_publish_logs(post_id: int, db: Session = Depends(get_db)):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
 
+    return (
+        db.query(PostPublishLog)
+        .filter(PostPublishLog.post_id == post_id)
+        .order_by(PostPublishLog.id.desc())
+        .all()
+    )
 
 @router.get("", response_model=list[PostListRead])
 def list_posts(

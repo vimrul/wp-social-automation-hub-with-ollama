@@ -58,4 +58,9 @@ export async function importPostsFromConfig(
   return response.data;
 }
 
+export async function getPostPublishLogs(postId: number): Promise<any[]> {
+  const response = await api.get(`/posts/${postId}/publish-logs`);
+  return response.data;
+}
+
 export type { PostDetailApiResponse, PostLatestAiApiResponse };
