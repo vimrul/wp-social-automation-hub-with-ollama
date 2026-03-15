@@ -1,19 +1,21 @@
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_roles
 from app.core.database import get_db
 from app.models.ai_generation import AIGeneration
 from app.models.post import Post
+from app.models.post_publish_log import PostPublishLog
 from app.models.source_fetch_config import SourceFetchConfig
+from app.models.user import User
 from app.schemas.ai_generation import AIGenerationRead
 from app.schemas.post import ImportPostsResponse, PostListRead, PostRead
+from app.schemas.post_publish_log import PostPublishLogRead
 from app.services.logs.activity_logger import log_activity
 from app.services.source.import_service import import_posts_from_config
-from app.models.post_publish_log import PostPublishLog
-from app.schemas.post_publish_log import PostPublishLogRead
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
@@ -22,8 +24,10 @@ class ImportPostsRequest(BaseModel):
     per_page: Optional[int] = None
     page: Optional[int] = None
 
+class BulkDeletePostsRequest(BaseModel):
+    post_ids: list[int]
 
-def build_latest_ai_map(generations: list[AIGeneration]) -> dict:
+def build_latest_ai_map(generations: list[AIGeneration]) -> Dict[str, Optional[dict]]:
     latest = {
         "twitter_summary": None,
         "facebook_summary": None,
@@ -42,22 +46,12 @@ def build_latest_ai_map(generations: list[AIGeneration]) -> dict:
             }
 
     return latest
-@router.get("/{post_id}/publish-logs", response_model=list[PostPublishLogRead])
-def list_post_publish_logs(post_id: int, db: Session = Depends(get_db)):
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
 
-    return (
-        db.query(PostPublishLog)
-        .filter(PostPublishLog.post_id == post_id)
-        .order_by(PostPublishLog.id.desc())
-        .all()
-    )
 
 @router.get("", response_model=list[PostListRead])
 def list_posts(
     db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
     source_site_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
@@ -84,15 +78,56 @@ def list_posts(
 
 
 @router.get("/{post_id}", response_model=PostRead)
-def get_post(post_id: int, db: Session = Depends(get_db)):
+def get_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
 
+@router.delete("/bulk-delete")
+def bulk_delete_posts(
+    payload: BulkDeletePostsRequest,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
+):
+    if not payload.post_ids:
+        raise HTTPException(status_code=400, detail="No post IDs provided")
 
+    rows = db.query(Post).filter(Post.id.in_(payload.post_ids)).all()
+    if not rows:
+        return {"success": True, "deleted_count": 0, "message": "No matching posts found"}
+
+    deleted_count = len(rows)
+
+    for row in rows:
+        db.delete(row)
+
+    db.commit()
+
+    log_activity(
+        db,
+        event_type="posts_bulk_deleted",
+        entity_type="post",
+        entity_id=None,
+        message=f"{deleted_count} posts deleted in bulk.",
+        details={"post_ids": payload.post_ids},
+    )
+
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"{deleted_count} posts deleted successfully",
+    }
 @router.get("/{post_id}/detail")
-def get_post_detail(post_id: int, db: Session = Depends(get_db)):
+def get_post_detail(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -137,7 +172,11 @@ def get_post_detail(post_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{post_id}/ai-generations", response_model=list[AIGenerationRead])
-def list_post_ai_generations(post_id: int, db: Session = Depends(get_db)):
+def list_post_ai_generations(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -151,7 +190,11 @@ def list_post_ai_generations(post_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{post_id}/ai-latest")
-def get_post_ai_latest(post_id: int, db: Session = Depends(get_db)):
+def get_post_ai_latest(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -171,11 +214,30 @@ def get_post_ai_latest(post_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/{post_id}/publish-logs", response_model=list[PostPublishLogRead])
+def list_post_publish_logs(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    return (
+        db.query(PostPublishLog)
+        .filter(PostPublishLog.post_id == post_id)
+        .order_by(PostPublishLog.id.desc())
+        .all()
+    )
+
+
 @router.post("/import/{config_id}", response_model=ImportPostsResponse)
 async def import_posts(
     config_id: int,
     payload: Optional[ImportPostsRequest] = Body(default=None),
     db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("editor", "admin", "superadmin")),
 ):
     config = db.query(SourceFetchConfig).filter(SourceFetchConfig.id == config_id).first()
     if not config:

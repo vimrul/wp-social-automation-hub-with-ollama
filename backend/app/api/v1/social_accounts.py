@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_roles
 from app.core.crypto import encrypt_value
 from app.core.database import get_db
 from app.models.social_account import SocialAccount
+from app.models.user import User
 from app.schemas.social_account import (
     SocialAccountCreate,
     SocialAccountRead,
@@ -39,7 +41,11 @@ def to_read_model(row: SocialAccount) -> dict:
 
 
 @router.post("", response_model=SocialAccountRead)
-def create_social_account(payload: SocialAccountCreate, db: Session = Depends(get_db)):
+def create_social_account(
+    payload: SocialAccountCreate,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
+):
     row = SocialAccount(
         name=payload.name,
         platform=payload.platform,
@@ -72,7 +78,10 @@ def create_social_account(payload: SocialAccountCreate, db: Session = Depends(ge
 
 
 @router.get("", response_model=list[SocialAccountRead])
-def list_social_accounts(db: Session = Depends(get_db)):
+def list_social_accounts(
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     rows = db.query(SocialAccount).order_by(SocialAccount.id.desc()).all()
     return [to_read_model(row) for row in rows]
 
@@ -82,6 +91,7 @@ def update_social_account(
     social_account_id: int,
     payload: SocialAccountUpdate,
     db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
 ):
     row = db.query(SocialAccount).filter(SocialAccount.id == social_account_id).first()
     if not row:
@@ -98,16 +108,16 @@ def update_social_account(
     row.is_active = payload.is_active
 
     if payload.app_secret:
-      row.app_secret_encrypted = encrypt_value(payload.app_secret)
+        row.app_secret_encrypted = encrypt_value(payload.app_secret)
 
     if payload.client_secret:
-      row.client_secret_encrypted = encrypt_value(payload.client_secret)
+        row.client_secret_encrypted = encrypt_value(payload.client_secret)
 
     if payload.access_token:
-      row.access_token_encrypted = encrypt_value(payload.access_token)
+        row.access_token_encrypted = encrypt_value(payload.access_token)
 
     if payload.refresh_token:
-      row.refresh_token_encrypted = encrypt_value(payload.refresh_token)
+        row.refresh_token_encrypted = encrypt_value(payload.refresh_token)
 
     db.add(row)
     db.commit()
@@ -126,7 +136,11 @@ def update_social_account(
 
 
 @router.delete("/{social_account_id}")
-def delete_social_account(social_account_id: int, db: Session = Depends(get_db)):
+def delete_social_account(
+    social_account_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
+):
     row = db.query(SocialAccount).filter(SocialAccount.id == social_account_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Social account not found")
@@ -153,6 +167,7 @@ def delete_social_account(social_account_id: int, db: Session = Depends(get_db))
 async def validate_social_account_route(
     social_account_id: int,
     db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
 ):
     row = db.query(SocialAccount).filter(SocialAccount.id == social_account_id).first()
     if not row:

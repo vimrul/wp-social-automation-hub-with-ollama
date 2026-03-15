@@ -63,4 +63,11 @@ export async function getPostPublishLogs(postId: number): Promise<any[]> {
   return response.data;
 }
 
+export async function bulkDeletePosts(postIds: number[]) {
+  const response = await api.delete("/posts/bulk-delete", {
+    data: { post_ids: postIds },
+  });
+  return response.data;
+}
+
 export type { PostDetailApiResponse, PostLatestAiApiResponse };

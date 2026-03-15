@@ -12,6 +12,13 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="viewer")
 
+    phone = Column(String(50), nullable=True)
+    photo_url = Column(String(500), nullable=True)
+    git_url = Column(String(500), nullable=True)
+    linkedin_url = Column(String(500), nullable=True)
+    x_url = Column(String(500), nullable=True)
+    facebook_url = Column(String(500), nullable=True)
+
     is_active = Column(Boolean, nullable=False, default=True)
     is_superuser = Column(Boolean, nullable=False, default=False)
     last_login_at = Column(DateTime(timezone=True), nullable=True)

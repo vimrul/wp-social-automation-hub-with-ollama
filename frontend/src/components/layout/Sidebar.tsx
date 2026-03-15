@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard" },
@@ -8,11 +9,14 @@ const navItems = [
   { to: "/posts", label: "Posts" },
   { to: "/ollama-profiles", label: "Ollama Profiles" },
   { to: "/prompt-templates", label: "Prompt Templates" },
-  { to: "/activity-logs", label: "Activity Logs" },
   { to: "/social-accounts", label: "Social Accounts" },
+  { to: "/activity-logs", label: "Activity Logs" },
+  { to: "/profile", label: "My Profile" },
 ];
 
 export default function Sidebar() {
+  const { user, logoutUser } = useAuth();
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -33,6 +37,16 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <div className="sidebar-user">
+        <div className="sidebar-user-name">{user?.full_name || "Unknown User"}</div>
+        <div className="sidebar-user-meta">
+          {user?.email || "-"} • {user?.role || "-"}
+        </div>
+        <button className="btn btn-secondary btn-sm sidebar-logout" onClick={logoutUser}>
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

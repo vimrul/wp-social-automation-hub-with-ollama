@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_roles
 from app.core.database import get_db
 from app.models.post_publish_log import PostPublishLog
+from app.models.user import User
 from app.schemas.publishing import PublishPostRequest, PublishPostResponse
 from app.services.logs.activity_logger import log_activity
 from app.services.publishing.publish_service import publish_post_to_social_account
@@ -11,7 +13,11 @@ router = APIRouter(prefix="/publishing", tags=["Publishing"])
 
 
 @router.post("/publish", response_model=PublishPostResponse)
-async def publish_post(payload: PublishPostRequest, db: Session = Depends(get_db)):
+async def publish_post(
+    payload: PublishPostRequest,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("editor", "admin", "superadmin")),
+):
     try:
         result = await publish_post_to_social_account(
             db=db,

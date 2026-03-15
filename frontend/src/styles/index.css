@@ -880,3 +880,153 @@ textarea {
     gap: 4px;
   }
 }
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: #111827;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+}
+
+.auth-form {
+  margin-top: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.auth-submit {
+  width: 100%;
+}
+
+.sidebar-user {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-user-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sidebar-user-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.sidebar-logout {
+  width: 100%;
+}
+
+.activity-card {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 20px;
+  align-items: center;
+}
+
+.activity-main {
+  min-width: 0;
+}
+
+.activity-side {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.activity-details {
+  width: 100%;
+}
+
+.activity-details summary {
+  list-style: none;
+}
+
+.activity-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-details-summary {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  cursor: pointer;
+}
+
+.activity-details-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: rgba(59, 130, 246, 0.08);
+  color: #93c5fd;
+  transition: all 0.2s ease;
+}
+
+.activity-details-summary:hover .activity-details-action {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #bfdbfe;
+}
+
+.activity-details-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.activity-details-toggle {
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.activity-details[open] .activity-details-toggle {
+  transform: rotate(90deg);
+}
+
+.activity-json-preview {
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .activity-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .activity-side {
+    justify-content: flex-start;
+  }
+
+  .activity-details-summary {
+    justify-content: flex-start;
+  }
+
+  .activity-details-action {
+    width: auto;
+    min-width: 160px;
+  }
+}
