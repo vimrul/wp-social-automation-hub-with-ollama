@@ -1,62 +1,71 @@
+version: "3.9"
+
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: wp-social-postgres
+    image: postgres:16
+    container_name: wp-social-automation-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-wp_social_automation}
-      POSTGRES_USER: ${POSTGRES_USER:-wp_social}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-pass}
+      POSTGRES_DB: wp_social_automation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - /home/ubuntu/wp-ollma-automation/postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wp_social_automation"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 15s
+    networks:
+      - wp_social_internal
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: wp-social-backend
+    container_name: wp-social-automation-backend
     restart: unless-stopped
     env_file:
-      - .env.prod
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-wp_social}:${POSTGRES_PASSWORD:-change-me-db-pass}@postgres:5432/${POSTGRES_DB:-wp_social_automation}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@example.com}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-Admin123!}
-      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
-      DEFAULT_ADMIN_FULL_NAME: ${DEFAULT_ADMIN_FULL_NAME:-Administrator}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["/bin/sh", "/app/entrypoint.prod.sh"]
+    command: ["/app/entrypoint.prod.sh"]
+    expose:
+      - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')\""]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || curl -fsS http://127.0.0.1:8000/docs >/dev/null || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 10
+      start_period: 40s
+    networks:
+      - wp_social_internal
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
-    container_name: wp-social-frontend
+        VITE_API_BASE_URL: /api/v1
+    container_name: wp-social-automation-frontend
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "${APP_PORT:-8080}:80"
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - wp_social_internal
 
-volumes:
-  postgres_data:
+networks:
+  wp_social_internal:
+    name: wp_social_internal
+    driver: bridge

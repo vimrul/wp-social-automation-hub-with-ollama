@@ -1,19 +1,16 @@
 #!/bin/sh
 set -e
 
-cd /app
+echo "Waiting for postgres..."
+until nc -z postgres 5432; do
+  sleep 2
+done
 
-echo "[backend] waiting for database migrations..."
+echo "Running migrations..."
 alembic upgrade head
 
-echo "[backend] seeding baseline data..."
+echo "Running seed..."
 python /app/scripts/seed_prod.py
 
-echo "[backend] starting api server..."
-exec gunicorn app.main:app \
-  -k uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000 \
-  --workers 3 \
-  --timeout 180 \
-  --access-logfile - \
-  --error-logfile -
+echo "Starting backend..."
+uvicorn app.main:app --host 0.0.0.0 --port 8000
