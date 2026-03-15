@@ -1,0 +1,30 @@
+name: Deploy Main to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy over SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          password: ${{ secrets.PROD_PASSWORD }}
+          port: ${{ secrets.PROD_PORT }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            sudo bash -lc '
+              set -euxo pipefail
+              cd /home/ubuntu/wp-ollma-automation/wp-social-automation-hub-with-ollama
+              docker compose -f docker-compose-prod.yml down
+              git pull origin main
+              docker compose -f docker-compose-prod.yml up -d --build
+            '
