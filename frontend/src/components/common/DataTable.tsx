@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-type Column<T> = {
+export type Column<T> = {
   key: string;
-  title: string;
+  title: ReactNode;
   render: (row: T) => ReactNode;
 };
 
@@ -27,6 +27,7 @@ export default function DataTable<T>({
             ))}
           </tr>
         </thead>
+
         <tbody>
           {rows.map((row) => (
             <tr key={getRowKey(row)}>

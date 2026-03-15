@@ -1,12 +1,26 @@
 import api from "./axios";
-import type { DashboardSummaryResponse, HealthResponse } from "../types/dashboard";
 
-export async function getHealth(): Promise<HealthResponse> {
-  const response = await api.get<HealthResponse>("/health");
-  return response.data;
-}
+export type DashboardActivityItem = {
+  id: number;
+  event_type: string;
+  entity_type: string;
+  entity_id: number | null;
+  message: string;
+  details: string | null;
+  created_at: string;
+};
 
-export async function getDashboardSummary(): Promise<DashboardSummaryResponse> {
-  const response = await api.get<DashboardSummaryResponse>("/dashboard/summary");
+export type DashboardSummary = {
+  total_sites: number;
+  total_fetch_configs: number;
+  total_posts: number;
+  total_prompt_templates: number;
+  total_ollama_profiles: number;
+  total_social_accounts: number;
+  recent_activity: DashboardActivityItem[];
+};
+
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const response = await api.get<DashboardSummary>("/dashboard/summary");
   return response.data;
 }

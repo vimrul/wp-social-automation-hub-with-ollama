@@ -2,33 +2,10 @@ import { useEffect, useState } from "react";
 import PageHeader from "../components/layout/PageHeader";
 import Loader from "../components/common/Loader";
 import EmptyState from "../components/common/EmptyState";
-import { getDashboardSummary } from "../api/dashboard";
-
-/**
- * Single recent activity item returned by the dashboard API.
- */
-type DashboardActivityItem = {
-  id: number;
-  event_type: string;
-  entity_type: string;
-  entity_id: number | null;
-  message: string;
-  details: string | null;
-  created_at: string;
-};
-
-/**
- * Full dashboard summary payload returned by the backend.
- */
-type DashboardSummary = {
-  total_sites: number;
-  total_fetch_configs: number;
-  total_posts: number;
-  total_prompt_templates: number;
-  total_ollama_profiles: number;
-  total_social_accounts: number;
-  recent_activity: DashboardActivityItem[];
-};
+import {
+  getDashboardSummary,
+  type DashboardSummary,
+} from "../api/dashboard";
 
 /**
  * Safely formats activity details for pretty JSON preview.
