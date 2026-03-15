@@ -12,7 +12,12 @@ from app.models.post_publish_log import PostPublishLog
 from app.models.source_fetch_config import SourceFetchConfig
 from app.models.user import User
 from app.schemas.ai_generation import AIGenerationRead
-from app.schemas.post import ImportPostsResponse, PostListRead, PostRead
+from app.schemas.post import (
+    ImportPostsResponse,
+    PaginatedPostsResponse,
+    PostListRead,
+    PostRead,
+)
 from app.schemas.post_publish_log import PostPublishLogRead
 from app.services.logs.activity_logger import log_activity
 from app.services.source.import_service import import_posts_from_config
@@ -24,8 +29,10 @@ class ImportPostsRequest(BaseModel):
     per_page: Optional[int] = None
     page: Optional[int] = None
 
+
 class BulkDeletePostsRequest(BaseModel):
     post_ids: list[int]
+
 
 def build_latest_ai_map(generations: list[AIGeneration]) -> Dict[str, Optional[dict]]:
     latest = {
@@ -48,7 +55,7 @@ def build_latest_ai_map(generations: list[AIGeneration]) -> Dict[str, Optional[d
     return latest
 
 
-@router.get("", response_model=list[PostListRead])
+@router.get("", response_model=PaginatedPostsResponse)
 def list_posts(
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
@@ -74,7 +81,15 @@ def list_posts(
             | (Post.excerpt.ilike(like_term))
         )
 
-    return query.order_by(Post.id.desc()).offset(offset).limit(limit).all()
+    total = query.count()
+    items = query.order_by(Post.id.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/{post_id}", response_model=PostRead)
@@ -88,40 +103,7 @@ def get_post(
         raise HTTPException(status_code=404, detail="Post not found")
     return post
 
-@router.delete("/bulk-delete")
-def bulk_delete_posts(
-    payload: BulkDeletePostsRequest,
-    db: Session = Depends(get_db),
-    _current_user: User = Depends(require_roles("admin", "superadmin")),
-):
-    if not payload.post_ids:
-        raise HTTPException(status_code=400, detail="No post IDs provided")
 
-    rows = db.query(Post).filter(Post.id.in_(payload.post_ids)).all()
-    if not rows:
-        return {"success": True, "deleted_count": 0, "message": "No matching posts found"}
-
-    deleted_count = len(rows)
-
-    for row in rows:
-        db.delete(row)
-
-    db.commit()
-
-    log_activity(
-        db,
-        event_type="posts_bulk_deleted",
-        entity_type="post",
-        entity_id=None,
-        message=f"{deleted_count} posts deleted in bulk.",
-        details={"post_ids": payload.post_ids},
-    )
-
-    return {
-        "success": True,
-        "deleted_count": deleted_count,
-        "message": f"{deleted_count} posts deleted successfully",
-    }
 @router.get("/{post_id}/detail")
 def get_post_detail(
     post_id: int,
@@ -277,3 +259,39 @@ async def import_posts(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/bulk-delete")
+def bulk_delete_posts(
+    payload: BulkDeletePostsRequest,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_roles("admin", "superadmin")),
+):
+    if not payload.post_ids:
+        raise HTTPException(status_code=400, detail="No post IDs provided")
+
+    rows = db.query(Post).filter(Post.id.in_(payload.post_ids)).all()
+    if not rows:
+        return {"success": True, "deleted_count": 0, "message": "No matching posts found"}
+
+    deleted_count = len(rows)
+
+    for row in rows:
+        db.delete(row)
+
+    db.commit()
+
+    log_activity(
+        db,
+        event_type="posts_bulk_deleted",
+        entity_type="post",
+        entity_id=None,
+        message=f"{deleted_count} posts deleted in bulk.",
+        details={"post_ids": payload.post_ids},
+    )
+
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"{deleted_count} posts deleted successfully",
+    }

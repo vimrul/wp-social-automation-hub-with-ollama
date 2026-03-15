@@ -20,12 +20,22 @@ export default function PostsPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const [limit, setLimit] = useState(20);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
-      const [postsData, sitesData] = await Promise.all([getPosts(), getSourceSites()]);
-      setPosts(postsData);
+
+      const [postsData, sitesData] = await Promise.all([
+        getPosts({ limit, offset }),
+        getSourceSites(),
+      ]);
+
+      setPosts(postsData.items);
+      setTotal(postsData.total);
       setSites(sitesData);
     } catch (err) {
       console.error(err);
@@ -37,13 +47,25 @@ export default function PostsPage() {
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [limit, offset]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [limit, offset]);
 
   const siteMap = useMemo(() => {
     return new Map(sites.map((site) => [site.id, site.name]));
   }, [sites]);
 
   const allSelected = posts.length > 0 && selectedIds.length === posts.length;
+
+  const currentPage = Math.floor(offset / limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const startItem = total === 0 ? 0 : offset + 1;
+  const endItem = Math.min(offset + posts.length, total);
+
+  const canGoPrevious = offset > 0;
+  const canGoNext = offset + limit < total;
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -64,8 +86,18 @@ export default function PostsPage() {
       setDeleting(true);
       await bulkDeletePosts(selectedIds);
       setSelectedIds([]);
+
+      const remainingOnPage = posts.length - selectedIds.length;
+      const newTotal = Math.max(0, total - selectedIds.length);
+
+      if (remainingOnPage <= 0 && offset > 0) {
+        setOffset(Math.max(0, offset - limit));
+      } else {
+        await loadData();
+      }
+
+      setTotal(newTotal);
       setConfirmOpen(false);
-      await loadData();
     } catch (err) {
       console.error(err);
       alert("Failed to delete selected posts.");
@@ -127,7 +159,7 @@ export default function PostsPage() {
         ),
       },
     ],
-    [allSelected, selectedIds, siteMap]
+    [allSelected, posts, selectedIds, siteMap]
   );
 
   return (
@@ -137,7 +169,32 @@ export default function PostsPage() {
         description="Browse imported posts and open detailed view."
       />
 
-      <div className="page-actions">
+      <div className="page-actions posts-toolbar">
+        <div className="posts-toolbar-left">
+          <div className="muted small-text">
+            Showing {startItem}-{endItem} of {total} posts
+          </div>
+
+          <div className="posts-page-size">
+            <label htmlFor="page-size" className="muted small-text">
+              Per page
+            </label>
+            <select
+              id="page-size"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setOffset(0);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+
         <button
           className="btn btn-danger"
           disabled={selectedIds.length === 0}
@@ -158,7 +215,31 @@ export default function PostsPage() {
       ) : null}
 
       {!loading && !error && posts.length > 0 ? (
-        <DataTable columns={columns} rows={posts} getRowKey={(row) => row.id} />
+        <>
+          <DataTable columns={columns} rows={posts} getRowKey={(row) => row.id} />
+
+          <div className="posts-pagination">
+            <button
+              className="btn btn-secondary"
+              disabled={!canGoPrevious}
+              onClick={() => setOffset(Math.max(0, offset - limit))}
+            >
+              Previous
+            </button>
+
+            <div className="posts-pagination-info">
+              Page {currentPage} of {totalPages}
+            </div>
+
+            <button
+              className="btn btn-secondary"
+              disabled={!canGoNext}
+              onClick={() => setOffset(offset + limit)}
+            >
+              Next
+            </button>
+          </div>
+        </>
       ) : null}
 
       <ConfirmDialog

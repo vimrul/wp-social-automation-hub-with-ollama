@@ -1,51 +1,53 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
-from app.schemas.common import ORMBase
+
+from pydantic import BaseModel, ConfigDict
 
 
-class PostListRead(ORMBase):
+class PostListRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     source_site_id: int
-    fetch_config_id: Optional[int]
-    external_post_id: str
-    external_post_url: Optional[str]
-    slug: Optional[str]
+    fetch_config_id: Optional[int] = None
+    external_post_id: Optional[str] = None
+    external_post_url: Optional[str] = None
+    slug: Optional[str] = None
     title: str
-    excerpt: Optional[str]
-    featured_image_url: Optional[str]
-    status: str
-    source_publish_status: Optional[str]
-    original_published_at: Optional[datetime]
-    source_modified_at: Optional[datetime]
-    first_fetched_at: datetime
-    last_fetched_at: datetime
+    excerpt: Optional[str] = None
+    featured_image_url: Optional[str] = None
+    status: Optional[str] = None
+    source_publish_status: Optional[str] = None
+    original_published_at: Optional[datetime] = None
+    last_fetched_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
 
-class PostRead(ORMBase):
+class PostRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     source_site_id: int
-    fetch_config_id: Optional[int]
-    external_post_id: str
-    external_post_url: Optional[str]
-    slug: Optional[str]
+    fetch_config_id: Optional[int] = None
+    external_post_id: Optional[str] = None
+    external_post_url: Optional[str] = None
+    slug: Optional[str] = None
     title: str
-    excerpt: Optional[str]
-    raw_content: Optional[str]
-    clean_content: Optional[str]
-    featured_image_url: Optional[str]
-    categories_json: Optional[str]
-    tags_json: Optional[str]
-    status: str
-    source_publish_status: Optional[str]
-    original_published_at: Optional[datetime]
-    source_modified_at: Optional[datetime]
-    first_fetched_at: datetime
-    last_fetched_at: datetime
-    content_hash: Optional[str]
-    is_deleted_in_source: bool
+    excerpt: Optional[str] = None
+    raw_content: Optional[str] = None
+    clean_content: Optional[str] = None
+    featured_image_url: Optional[str] = None
+    categories_json: Optional[str] = None
+    tags_json: Optional[str] = None
+    status: Optional[str] = None
+    source_publish_status: Optional[str] = None
+    original_published_at: Optional[datetime] = None
+    source_modified_at: Optional[datetime] = None
+    first_fetched_at: Optional[datetime] = None
+    last_fetched_at: Optional[datetime] = None
+    content_hash: Optional[str] = None
+    is_deleted_in_source: Optional[bool] = None
     created_at: datetime
     updated_at: datetime
 
@@ -57,3 +59,10 @@ class ImportPostsResponse(BaseModel):
     updated_count: int
     skipped_count: int
     message: str
+
+
+class PaginatedPostsResponse(BaseModel):
+    items: list[PostListRead]
+    total: int
+    limit: int
+    offset: int

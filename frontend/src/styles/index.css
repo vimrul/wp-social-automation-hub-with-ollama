@@ -1030,3 +1030,56 @@ textarea {
     min-width: 160px;
   }
 }
+
+.posts-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.posts-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.posts-page-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.posts-page-size select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  color: var(--text);
+}
+
+.posts-pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.posts-pagination-info {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .posts-pagination {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .posts-toolbar {
+    align-items: flex-start;
+  }
+}
