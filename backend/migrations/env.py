@@ -18,6 +18,7 @@ from app.models.ai_generation import AIGeneration
 from app.models.social_account import SocialAccount
 from app.models.post_publish_log import PostPublishLog
 from app.models.user import User
+from app.models.oauth_state import OAuthState
 
 config = context.config
 

@@ -7,6 +7,7 @@ import StatusBadge from "../components/common/StatusBadge";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import SocialAccountModal from "../components/social-accounts/SocialAccountModal";
 import { getSourceSites } from "../api/sourceSites";
+import { getFacebookConnectUrl, getXConnectUrl } from "../api/oauth";
 import {
   createSocialAccount,
   deleteSocialAccount,
@@ -17,22 +18,36 @@ import {
 import type { SocialAccount, SocialAccountPayload } from "../types/socialAccount";
 import type { SourceSite } from "../types/sourceSite";
 
+/**
+ * Social accounts management page.
+ *
+ * Features:
+ * - list connected social accounts
+ * - create new account
+ * - edit existing account
+ * - validate account credentials
+ * - delete account
+ * - start OAuth flow for X and Facebook
+ */
 export default function SocialAccountsPage() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [sites, setSites] = useState<SourceSite[]>([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
   const [editingAccount, setEditingAccount] = useState<SocialAccount | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<SocialAccount | null>(null);
 
   const [validatingId, setValidatingId] = useState<number | null>(null);
-  const [actionMessage, setActionMessage] = useState("");
-  const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState<string>("");
+  const [actionError, setActionError] = useState<string>("");
 
-  const loadData = async () => {
+  /**
+   * Load both social accounts and source sites together.
+   */
+  const loadData = async (): Promise<void> => {
     try {
       setLoading(true);
       setError("");
@@ -45,7 +60,7 @@ export default function SocialAccountsPage() {
       setAccounts(accountsData);
       setSites(sitesData);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load social accounts page data:", err);
       setError("Failed to load social accounts.");
     } finally {
       setLoading(false);
@@ -56,7 +71,10 @@ export default function SocialAccountsPage() {
     void loadData();
   }, []);
 
-  const handleCreate = async (payload: SocialAccountPayload) => {
+  /**
+   * Create a new social account.
+   */
+  const handleCreate = async (payload: SocialAccountPayload): Promise<void> => {
     try {
       setSaving(true);
       setActionMessage("");
@@ -67,15 +85,20 @@ export default function SocialAccountsPage() {
       setActionMessage("Social account created successfully.");
       await loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to create social account:", err);
       setActionError("Failed to create social account.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleUpdate = async (payload: SocialAccountPayload) => {
-    if (!editingAccount) return;
+  /**
+   * Update an existing social account.
+   */
+  const handleUpdate = async (payload: SocialAccountPayload): Promise<void> => {
+    if (!editingAccount) {
+      return;
+    }
 
     try {
       setSaving(true);
@@ -87,15 +110,20 @@ export default function SocialAccountsPage() {
       setActionMessage("Social account updated successfully.");
       await loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to update social account:", err);
       setActionError("Failed to update social account.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!deletingAccount) return;
+  /**
+   * Delete selected social account.
+   */
+  const handleDelete = async (): Promise<void> => {
+    if (!deletingAccount) {
+      return;
+    }
 
     try {
       setSaving(true);
@@ -107,14 +135,17 @@ export default function SocialAccountsPage() {
       setActionMessage(result.message || "Social account deleted successfully.");
       await loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to delete social account:", err);
       setActionError("Failed to delete social account.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleValidate = async (account: SocialAccount) => {
+  /**
+   * Validate tokens / credentials of a social account.
+   */
+  const handleValidate = async (account: SocialAccount): Promise<void> => {
     try {
       setValidatingId(account.id);
       setActionMessage("");
@@ -124,7 +155,7 @@ export default function SocialAccountsPage() {
       setActionMessage(result.message || "Social account validated successfully.");
       await loadData();
     } catch (err: any) {
-      console.error(err);
+      console.error("Failed to validate social account:", err);
       setActionError(
         err?.response?.data?.detail ||
           err?.message ||
@@ -135,10 +166,48 @@ export default function SocialAccountsPage() {
     }
   };
 
+  /**
+   * Start OAuth flow for X.
+   */
+  const handleConnectX = async (): Promise<void> => {
+    try {
+      setActionMessage("");
+      setActionError("");
+
+      const result = await getXConnectUrl();
+      window.location.href = result.authorization_url;
+    } catch (err) {
+      console.error("Failed to start X OAuth flow:", err);
+      setActionError("Failed to start X OAuth flow.");
+    }
+  };
+
+  /**
+   * Start OAuth flow for Facebook.
+   */
+  const handleConnectFacebook = async (): Promise<void> => {
+    try {
+      setActionMessage("");
+      setActionError("");
+
+      const result = await getFacebookConnectUrl();
+      window.location.href = result.authorization_url;
+    } catch (err) {
+      console.error("Failed to start Facebook OAuth flow:", err);
+      setActionError("Failed to start Facebook OAuth flow.");
+    }
+  };
+
+  /**
+   * Quick lookup for source site names by ID.
+   */
   const siteMap = useMemo(() => {
-    return new Map(sites.map((site) => [site.id, site.name]));
+    return new Map<number, string>(sites.map((site) => [site.id, site.name]));
   }, [sites]);
 
+  /**
+   * Data table column definitions.
+   */
   const columns = useMemo(
     () => [
       {
@@ -231,6 +300,43 @@ export default function SocialAccountsPage() {
     [siteMap, validatingId]
   );
 
+  if (loading) {
+    return (
+      <div>
+        <PageHeader
+          title="Social Accounts"
+          description="Manage connected social media account configurations."
+        />
+        <Loader />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader
+          title="Social Accounts"
+          description="Manage connected social media account configurations."
+        />
+
+        <div className="page-actions">
+          <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)}>
+            Add Social Account
+          </button>
+          <button className="btn btn-secondary" onClick={handleConnectX}>
+            Connect X
+          </button>
+          <button className="btn btn-secondary" onClick={handleConnectFacebook}>
+            Connect Facebook
+          </button>
+        </div>
+
+        <EmptyState title="Unable to load social accounts" description={error} />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
@@ -242,6 +348,12 @@ export default function SocialAccountsPage() {
         <button className="btn btn-primary" onClick={() => setIsCreateOpen(true)}>
           Add Social Account
         </button>
+        <button className="btn btn-secondary" onClick={handleConnectX}>
+          Connect X
+        </button>
+        <button className="btn btn-secondary" onClick={handleConnectFacebook}>
+          Connect Facebook
+        </button>
       </div>
 
       {actionMessage ? (
@@ -252,22 +364,14 @@ export default function SocialAccountsPage() {
         <div className="inline-message inline-message-error">{actionError}</div>
       ) : null}
 
-      {loading ? <Loader /> : null}
-
-      {!loading && error ? (
-        <EmptyState title="Unable to load social accounts" description={error} />
-      ) : null}
-
-      {!loading && !error && accounts.length === 0 ? (
+      {accounts.length === 0 ? (
         <EmptyState
           title="No social accounts found"
           description="Create your first social account configuration."
         />
-      ) : null}
-
-      {!loading && !error && accounts.length > 0 ? (
+      ) : (
         <DataTable columns={columns} rows={accounts} getRowKey={(row) => row.id} />
-      ) : null}
+      )}
 
       <SocialAccountModal
         open={isCreateOpen}
