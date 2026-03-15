@@ -16,8 +16,8 @@ export default function LoginPage() {
   const state = location.state as LocationState | null;
   const redirectTo = state?.from?.pathname || "/dashboard";
 
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,14 +54,15 @@ export default function LoginPage() {
         <h1>WP Social Hub</h1>
         <p className="muted">Sign in to continue</p>
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" autoComplete="on">
           <div className="form-field">
             <label>Email</label>
             <input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@example.com"
+              placeholder="Enter your email"
+              autoComplete="username"
               required
             />
           </div>
@@ -72,7 +73,8 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
+              placeholder="Enter your password"
+              autoComplete="current-password"
               required
             />
           </div>
@@ -81,7 +83,11 @@ export default function LoginPage() {
             <div className="inline-message inline-message-error">{error}</div>
           ) : null}
 
-          <button type="submit" className="btn btn-primary auth-submit" disabled={loading}>
+          <button
+            type="submit"
+            className="btn btn-primary auth-submit"
+            disabled={loading}
+          >
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
