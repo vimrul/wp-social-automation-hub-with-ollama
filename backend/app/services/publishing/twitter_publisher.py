@@ -2,7 +2,7 @@ import httpx
 
 
 async def publish_to_twitter(*, bearer_token: str, text: str) -> dict:
-    url = "https://api.twitter.com/2/tweets"
+    url = "https://api.x.com/2/tweets"
 
     headers = {
         "Authorization": f"Bearer {bearer_token}",
@@ -19,7 +19,7 @@ async def publish_to_twitter(*, bearer_token: str, text: str) -> dict:
         data = response.json()
 
     tweet_id = data.get("data", {}).get("id")
-    published_url = f"https://twitter.com/i/web/status/{tweet_id}" if tweet_id else None
+    published_url = f"https://x.com/i/web/status/{tweet_id}" if tweet_id else None
 
     return {
         "published_id": tweet_id,

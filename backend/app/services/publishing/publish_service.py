@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from app.core.crypto import decrypt_value
 from app.models.ai_generation import AIGeneration
 from app.models.post import Post
 from app.models.social_account import SocialAccount
@@ -57,7 +58,9 @@ def _extract_latest_generated_content(
         .first()
     )
     if latest_hashtags:
-        hashtag_value = latest_hashtags.output_text or getattr(latest_hashtags, "hashtags", None)
+        hashtag_value = latest_hashtags.output_text or getattr(
+            latest_hashtags, "hashtags", None
+        )
 
     return text_value, hashtag_value
 
@@ -74,7 +77,9 @@ async def publish_post_to_social_account(
     if not post:
         raise ValueError("Post not found")
 
-    social_account = db.query(SocialAccount).filter(SocialAccount.id == social_account_id).first()
+    social_account = (
+        db.query(SocialAccount).filter(SocialAccount.id == social_account_id).first()
+    )
     if not social_account:
         raise ValueError("Social account not found")
 
@@ -104,9 +109,11 @@ async def publish_post_to_social_account(
         if not social_account.access_token_encrypted:
             raise ValueError("Facebook access token is missing")
 
+        access_token = decrypt_value(social_account.access_token_encrypted)
+
         result = await publish_to_facebook_page(
             page_id=social_account.page_id,
-            access_token=social_account.access_token_encrypted,
+            access_token=access_token,
             message=final_text,
         )
         return {
@@ -121,8 +128,10 @@ async def publish_post_to_social_account(
         if not social_account.access_token_encrypted:
             raise ValueError("Twitter/X access token is missing")
 
+        access_token = decrypt_value(social_account.access_token_encrypted)
+
         result = await publish_to_twitter(
-            bearer_token=social_account.access_token_encrypted,
+            bearer_token=access_token,
             text=final_text,
         )
         return {
