@@ -3,6 +3,7 @@ from datetime import datetime
 import httpx
 from sqlalchemy.orm import Session
 
+from app.core.crypto import decrypt_value
 from app.models.social_account import SocialAccount
 
 
@@ -16,9 +17,10 @@ async def validate_social_account(db: Session, social_account: SocialAccount) ->
         if not social_account.access_token_encrypted:
             raise ValueError("Facebook access token is missing")
 
-        # Lightweight token/page validation
+        access_token = decrypt_value(social_account.access_token_encrypted)
+
         url = "https://graph.facebook.com/v23.0/me"
-        params = {"access_token": social_account.access_token_encrypted}
+        params = {"access_token": access_token}
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(url, params=params)
@@ -38,10 +40,11 @@ async def validate_social_account(db: Session, social_account: SocialAccount) ->
         if not social_account.access_token_encrypted:
             raise ValueError("Twitter/X access token is missing")
 
-        # Best-effort bearer token validation
-        url = "https://api.twitter.com/2/users/me"
+        access_token = decrypt_value(social_account.access_token_encrypted)
+
+        url = "https://api.x.com/2/users/me"
         headers = {
-            "Authorization": f"Bearer {social_account.access_token_encrypted}",
+            "Authorization": f"Bearer {access_token}",
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:
